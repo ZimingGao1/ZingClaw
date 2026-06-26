@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,12 +11,14 @@ from typing import Any, Sequence
 
 from zingclaw.agent.context import AgentContext, ContextBuilder
 from zingclaw.agent.runner import AgentRunResult, AgentRunSpec, AgentRunner
+from zingclaw.bus import InboundMessage, MessageBus, OutboundMessage
 from zingclaw.config import Settings
 from zingclaw.providers import LLMProvider, OpenAICompatProvider, TextDeltaCallback
 from zingclaw.session import Session, SessionManager
 from zingclaw.tools import ToolContext, ToolLoader, ToolRegistry
 
 _DEFAULT_CHANNEL = "cli"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -44,6 +47,7 @@ class AgentLoop:
         tool_loader: ToolLoader | None = None,
         context_builder: ContextBuilder | None = None,
         runner: AgentRunner | None = None,
+        bus: MessageBus | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider or self._build_provider(settings)
@@ -61,6 +65,8 @@ class AgentLoop:
             workspace=settings.workspace_dir,
         )
         self.runner = runner or AgentRunner(self.provider)
+        self.bus = bus
+        self._running = False
 
     @classmethod
     def from_settings(
@@ -68,9 +74,10 @@ class AgentLoop:
         settings: Settings,
         *,
         provider: LLMProvider | None = None,
+        bus: MessageBus | None = None,
     ) -> "AgentLoop":
         """Build a loop from runtime settings."""
-        return cls(settings=settings, provider=provider)
+        return cls(settings=settings, provider=provider, bus=bus)
 
     @staticmethod
     def _build_provider(settings: Settings) -> LLMProvider:
@@ -83,6 +90,114 @@ class AgentLoop:
     @property
     def tool_names(self) -> list[str]:
         return self.tools.tool_names
+
+    def bind_bus(self, bus: MessageBus) -> None:
+        """Attach a MessageBus used by ``run()`` for inbound/outbound routing."""
+        self.bus = bus
+
+    def stop(self) -> None:
+        """Request the bus-driven loop to stop after the current poll cycle."""
+        self._running = False
+
+    async def run(self) -> None:
+        """Consume inbound bus messages and publish outbound responses."""
+        if self.bus is None:
+            raise RuntimeError("AgentLoop.run() requires a bound MessageBus")
+
+        self._running = True
+        try:
+            while self._running:
+                try:
+                    inbound = await asyncio.wait_for(self.bus.consume_inbound(), timeout=0.25)
+                except asyncio.TimeoutError:
+                    continue
+                except asyncio.CancelledError:
+                    break
+
+                try:
+                    await self._dispatch_inbound_message(inbound)
+                except Exception as exc:
+                    logger.exception("AgentLoop bus dispatch failed")
+                    await self.bus.publish_outbound(
+                        OutboundMessage(
+                            channel=inbound.channel,
+                            chat_id=inbound.chat_id,
+                            session_key=inbound.session_key,
+                            text="Sorry, the agent runtime failed processing this message.",
+                            reply_to=inbound.message_id,
+                            final=True,
+                            metadata={
+                                "stop_reason": "error",
+                                "error": f"Agent loop dispatch failed: {exc}",
+                            },
+                        )
+                    )
+        finally:
+            self._running = False
+
+    async def _dispatch_inbound_message(self, inbound: InboundMessage) -> AgentLoopResult:
+        if self.bus is None:
+            raise RuntimeError("AgentLoop bus dispatch requires a bound MessageBus")
+
+        streamed = False
+        wants_stream = bool(inbound.metadata.get("_wants_stream"))
+
+        async def _on_text_delta(delta: str) -> None:
+            nonlocal streamed
+            streamed = True
+            await self.bus.publish_outbound(
+                OutboundMessage(
+                    channel=inbound.channel,
+                    chat_id=inbound.chat_id,
+                    session_key=inbound.session_key,
+                    text=delta,
+                    reply_to=inbound.message_id,
+                    final=False,
+                    metadata={"_stream_delta": True},
+                )
+            )
+
+        result = await self.process_message(
+            on_text_delta=_on_text_delta if wants_stream else None,
+            **inbound.to_loop_kwargs(),
+        )
+
+        await self.bus.publish_outbound(
+            self._build_outbound_message(
+                inbound,
+                result,
+                streamed=streamed,
+            )
+        )
+        return result
+
+    @staticmethod
+    def _build_outbound_message(
+        inbound: InboundMessage,
+        result: AgentLoopResult,
+        *,
+        streamed: bool,
+    ) -> OutboundMessage:
+        metadata: dict[str, Any] = {
+            "stop_reason": result.stop_reason,
+            "tools_used": list(result.tools_used),
+            "usage": dict(result.usage),
+        }
+        if result.error is not None:
+            metadata["error"] = result.error
+        if streamed:
+            metadata["_stream_end"] = True
+            metadata["_streamed"] = True
+
+        return OutboundMessage(
+            channel=inbound.channel,
+            chat_id=inbound.chat_id,
+            session_key=inbound.session_key,
+            text="" if streamed else (result.final_content or ""),
+            reply_to=inbound.message_id,
+            final=True,
+            metadata=metadata,
+        )
 
     async def process_message(
         self,
@@ -274,10 +389,12 @@ class AgentLoop:
 
     async def aclose(self) -> None:
         """Flush session state for graceful shutdown."""
+        self.stop()
         self.sessions.flush_all()
 
     def close(self) -> None:
         """Synchronous wrapper for graceful shutdown."""
+        self.stop()
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:

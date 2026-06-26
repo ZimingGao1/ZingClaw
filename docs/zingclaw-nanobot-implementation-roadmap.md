@@ -25,7 +25,7 @@
 1. `message schema`
 2. `bus`
 3. `channels`
-4. `CLI Channel` 改造
+4. `CLI Bus Adapter` 改造
 5. `provider registry / factory`
 6. `config schema` 扩展
 7. `security / workspace policy`
@@ -70,36 +70,41 @@
 - 具体要实现的东西：
 - 定义 `InboundMessage`，至少包含 `channel`, `chat_id`, `session_key`, `message_id`, `sender_id`, `text`, `attachments`, `metadata`, `created_at`。
 - 定义 `OutboundMessage`，至少包含 `channel`, `chat_id`, `session_key`, `reply_to`, `text`, `final`, `metadata`, `created_at`。
-- 定义 `RuntimeEvent` 或等价事件模型，用来描述 `tool_call`、`tool_result`、`llm_delta`、`llm_final`、`error`。
 - 把当前 `AgentLoop.process_message(...)` 依赖的零散参数，逐步收敛到统一消息对象。
 - 为未来 WebUI / WebSocket / 第三方 channel 预留 `attachments`、`raw_payload`、`thread_id` 等字段。
 - 对应的参考文件：
 - 当前项目：`zingclaw/agent/loop.py`
 - 当前项目：`zingclaw/cli/main.py`
 - 参考：`reference/nanobot/bus/events.py`
-- 参考：`reference/nanobot/bus/progress.py`
 - 参考：`reference/nanobot/sdk/types.py`
 - 完成标志：
 - `AgentLoop` 可以接收一个统一的 inbound 对象，而不是依赖 CLI 私有参数拼装。
+- 说明：
+- 这一模块只负责 `InboundMessage / OutboundMessage`。
+- `runtime events` 不放在这里，而是在模块 14 单独实现 `bus/runtime_events.py`，这样更贴近 `nanobot` 的结构。
 
 ## 模块 2：消息总线
 
 - 模块名称：`bus/queue.py`
 - 当前状态：未实现
-- 功能概括：解耦“消息从哪里来”和“消息如何被 agent 处理”。
+- 功能概括：提供一个接近 `nanobot` 的队列式消息总线，专门负责用户消息进出，不负责运行时状态订阅。
 - 具体要实现的东西：
-- 实现一个最小异步 `MessageBus`，支持发布 `InboundMessage` 和 `OutboundMessage`。
-- 支持注册消费者，例如 `AgentLoop` 消费 inbound，channel 消费 outbound。
-- 先不追求复杂订阅模型，P0 只要有 `publish()`、`subscribe()`、`run_consumer_loop()` 即可。
-- 为后续 runtime events、WebUI 实时推送、日志落盘预留事件分发接口。
-- 让 bus 不依赖具体 channel 和 provider，只处理标准事件。
+- 实现一个最小异步 `MessageBus`，内部至少有 `inbound queue` 和 `outbound queue`。
+- 提供 `publish_inbound()`、`consume_inbound()`、`publish_outbound()`、`consume_outbound()` 这组基础接口。
+- 可以补充 `inbound_size`、`outbound_size` 这类轻量状态读取，方便调试和观测。
+- `AgentLoop` 所在运行层自己起循环去 `consume_inbound()`，而不是在 bus 里注册消费者。
+- `Channel` / `ChannelManager` 自己起循环去 `consume_outbound()`，而不是让 bus 做订阅分发。
+- 这一层只负责“消息搬运”，不负责命令路由、状态广播、日志订阅、WebUI 实时事件推送。
+- `runtime events` 不放在这里；订阅式事件总线放到模块 14 单独实现。
 - 对应的参考文件：
 - 当前项目：`zingclaw/agent/loop.py`
 - 参考：`reference/nanobot/bus/queue.py`
 - 参考：`reference/nanobot/bus/events.py`
-- 参考：`reference/nanobot/bus/runtime_events.py`
 - 完成标志：
-- CLI 发送进来的消息，可以先发到 bus，再由 loop 消费，不再直接调用 loop。
+- CLI / Channel 可以先把 `InboundMessage` 放进 bus。
+- `AgentLoop` 可以从 bus 取出 inbound 处理后，再把 `OutboundMessage` 放回 bus。
+- CLI / Channel 可以再从 bus 取出 outbound 并完成实际回复。
+- 整条链路已经变成 `Channel -> Bus -> AgentLoop -> Bus -> Channel`。
 
 ## 模块 3：Channel 基础设施
 
@@ -120,15 +125,16 @@
 - 完成标志：
 - `ZingClaw` 可以同时挂一个或多个 channel，而不是 CLI 硬编码唯一入口。
 
-## 模块 4：CLI Channel 改造
+## 模块 4：CLI Bus Adapter 改造
 
-- 模块名称：`channels/cli.py` 或 `cli/channel.py`
+- 模块名称：`cli/main.py`、`cli/chat_runtime.py` 或等价 CLI 接入层
 - 当前状态：未实现，现有 CLI 直接调用 loop
-- 功能概括：把 CLI 从“唯一入口”改造成“一个 channel 实现”。
+- 功能概括：把 CLI 从“唯一入口”改造成“直接对接 MessageBus 的本地交互入口”，而不是硬塞进 `channels/` 体系。
 - 具体要实现的东西：
-- 把当前 `zingclaw/cli/main.py` 的聊天输入逻辑抽到 `CLIChannel`。
-- CLI 负责读取终端输入，把内容转换成 `InboundMessage` 发布到 bus。
-- CLI 负责订阅属于当前会话的 `OutboundMessage`，并处理流式打印。
+- 在 CLI 里创建 `MessageBus`，并把聊天输入转换成 `InboundMessage` 发布到 bus。
+- 让 `AgentLoop` 运行在一条后台消费链路里，从 bus 取 inbound，再把 `OutboundMessage` 放回 bus。
+- CLI 自己维护 outbound 消费循环，读取属于当前会话的 `OutboundMessage` 并处理终端打印。
+- 保持 CLI 作为“本地前端壳”的定位，不要求它实现 `BaseChannel`。
 - `/help`、`/exit`、`/model`、`/session`、`/clear` 先保留在 CLI 层，后面再逐步迁到 command router。
 - 保持现有用户体验不变，先做结构迁移，不先加新功能。
 - 对应的参考文件：
@@ -137,9 +143,9 @@
 - 当前项目：`zingclaw/agent/runner.py`
 - 参考：`reference/nanobot/cli/commands.py`
 - 参考：`reference/nanobot/cli/stream.py`
-- 参考：`reference/nanobot/channels/base.py`
+- 参考：`reference/nanobot/bus/queue.py`
 - 完成标志：
-- `zingclaw chat` 仍然能正常跑，但调用链已经变成 `CLI Channel -> Bus -> AgentLoop`。
+- `zingclaw chat` 仍然能正常跑，但调用链已经变成 `CLI -> Bus -> AgentLoop -> Bus -> CLI`。
 
 ## 模块 5：Provider Registry / Factory
 
@@ -334,13 +340,20 @@
 
 - 模块名称：`agent/runner.py`、`agent/loop.py`、`bus/runtime_events.py`
 - 当前状态：部分实现
-- 功能概括：把现在能跑的 P0 执行链升级成可观测、可挂钩、可扩展的执行框架。
+- 功能概括：在消息总线之外，单独实现“运行时事件总线”，把执行状态、进度和内部生命周期暴露给 CLI、日志和未来 WebUI。
 - 具体要实现的东西：
+- 在这一阶段单独实现 `runtime event bus`，不要和 `InboundMessage / OutboundMessage` 混在同一个消息模型文件里。
+- 明确区分两类总线：
+- `MessageBus`：负责用户消息进出。
+- `RuntimeEventBus`：负责进程内状态事件订阅与广播。
+- `RuntimeEventBus` 采用订阅式接口，例如 `subscribe()`、`publish()`、`publish_nowait()`。
+- 定义一组运行时事件类型，例如 `SessionTurnStarted`、`TurnRunStatusChanged`、`TurnCompleted`，而不是继续沿用一个松散的大字典事件模型。
 - 为 `runner` 增加生命周期 hook，例如 `before_iteration`、`after_iteration`、`before_execute_tools`。
 - 为工具调用、模型增量输出、错误恢复增加 runtime events。
-- 把当前 CLI 的流式输出逻辑，从直接回调，升级成“事件驱动 + 终端消费”。
+- 把当前 CLI 的流式输出逻辑，从直接回调，逐步升级成“事件驱动 + 终端消费”。
 - 让 `loop` 处理 session、memory、skills、bus 的整合，而不是只做最小编排。
 - 为未来 cron、subagent、goal continuation 预留进入点。
+- 所有“注册消费者 / 订阅事件”的逻辑，优先放在这一层，而不是放回模块 2 的 `MessageBus`。
 - 对应的参考文件：
 - 当前项目：`zingclaw/agent/runner.py`
 - 当前项目：`zingclaw/agent/loop.py`
@@ -351,6 +364,9 @@
 - 参考：`reference/nanobot/bus/runtime_events.py`
 - 完成标志：
 - 运行过程不再是黑箱，CLI、日志、未来 WebUI 都能消费同一套运行事件。
+- 结构上也和模块 2 完成分层：
+- 模块 2 只管消息队列。
+- 模块 14 只管运行时事件订阅。
 
 ## 模块 15：命令路由
 
@@ -418,7 +434,7 @@
 1. 模块 1：消息模型
 2. 模块 2：消息总线
 3. 模块 3：Channel 基础设施
-4. 模块 4：CLI Channel 改造
+4. 模块 4：CLI Bus Adapter 改造
 
 这一阶段结束后，目标是：
 
@@ -489,7 +505,7 @@
 2. 新建 `zingclaw/bus/queue.py`
 3. 新建 `zingclaw/channels/base.py`
 4. 新建 `zingclaw/channels/manager.py`
-5. 把现有 `zingclaw/cli/main.py` 改造成 `CLI Channel + CLI shell`
+5. 把现有 `zingclaw/cli/main.py` 改造成 `CLI Bus Adapter + CLI shell`
 
 原因很简单：
 

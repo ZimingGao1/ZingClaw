@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from copy import deepcopy
 from typing import Any
 
 import pytest
 
 from zingclaw.agent.loop import AgentLoop
+from zingclaw.bus import InboundMessage, MessageBus
 from zingclaw.config import Settings
 from zingclaw.providers import LLMProvider, LLMResponse, ToolCallRequest
 from zingclaw.tools import Tool, ToolRegistry
@@ -28,9 +30,12 @@ class RecordingProvider(LLMProvider):
         tool_choice: str | dict[str, Any] | None = None,
         on_text_delta=None,
     ) -> LLMResponse:
-        del tools, model, max_tokens, temperature, reasoning_effort, tool_choice, on_text_delta
+        del tools, model, max_tokens, temperature, reasoning_effort, tool_choice
         self.requests.append(deepcopy(messages))
-        return self.responses.pop(0)
+        response = self.responses.pop(0)
+        if on_text_delta is not None and response.content:
+            await on_text_delta(response.content)
+        return response
 
     def get_default_model(self) -> str:
         return "dummy-model"
@@ -132,3 +137,81 @@ async def test_agent_loop_persists_synthetic_error_reply(tmp_path) -> None:
     assert result.final_content == "friendly error"
     assert [message["role"] for message in session.messages] == ["user", "assistant"]
     assert session.messages[-1]["content"] == "friendly error"
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_run_streams_bus_deltas_and_stream_end_marker(tmp_path) -> None:
+    provider = RecordingProvider(
+        [
+            LLMResponse(content="streamed answer", finish_reason="stop")
+        ]
+    )
+    registry = ToolRegistry()
+    loop = _make_loop(tmp_path, provider, registry)
+    bus = MessageBus()
+    loop.bind_bus(bus)
+    task = asyncio.create_task(loop.run())
+
+    try:
+        await bus.publish_inbound(
+            InboundMessage(
+                channel="cli",
+                chat_id="demo",
+                session_key="cli:demo",
+                sender_id="user-1",
+                text="hello",
+                metadata={"_wants_stream": True},
+            )
+        )
+
+        delta = await bus.consume_outbound()
+        final = await bus.consume_outbound()
+    finally:
+        loop.stop()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    assert delta.text == "streamed answer"
+    assert delta.final is False
+    assert delta.metadata == {"_stream_delta": True}
+    assert final.text == ""
+    assert final.final is True
+    assert final.metadata["_stream_end"] is True
+    assert final.metadata["_streamed"] is True
+    assert final.metadata["stop_reason"] == "completed"
+    assert final.metadata["tools_used"] == []
+    assert final.metadata["usage"] == {}
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_run_publishes_single_final_outbound_without_streaming(tmp_path) -> None:
+    provider = RecordingProvider(
+        [
+            LLMResponse(content="plain answer", finish_reason="stop")
+        ]
+    )
+    loop = _make_loop(tmp_path, provider, ToolRegistry())
+    bus = MessageBus()
+    loop.bind_bus(bus)
+    task = asyncio.create_task(loop.run())
+
+    try:
+        await bus.publish_inbound(
+            InboundMessage(
+                channel="cli",
+                chat_id="demo",
+                session_key="cli:demo",
+                text="hello",
+            )
+        )
+
+        outbound = await bus.consume_outbound()
+    finally:
+        loop.stop()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    assert outbound.text == "plain answer"
+    assert outbound.final is True
+    assert outbound.metadata["stop_reason"] == "completed"
+    assert "_stream_end" not in outbound.metadata

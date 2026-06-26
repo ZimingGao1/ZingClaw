@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from dataclasses import dataclass
 from typing import Any
 
 import typer
@@ -12,6 +13,7 @@ from rich.table import Table
 
 from zingclaw import __version__
 from zingclaw.agent import AgentLoop
+from zingclaw.bus import InboundMessage, MessageBus, OutboundMessage
 from zingclaw.config import ensure_runtime_dirs, get_settings
 
 app = typer.Typer(
@@ -22,6 +24,13 @@ app = typer.Typer(
 )
 console = Console()
 _EXIT_COMMANDS = {"/exit", "/quit", "exit", "quit"}
+
+
+@dataclass(slots=True)
+class ChatTurnResult:
+    final_content: str | None
+    stop_reason: str = "completed"
+    error: str | None = None
 
 
 def _print_chat_result(result: Any, *, already_streamed: bool = False) -> None:
@@ -41,23 +50,52 @@ def _print_chat_help() -> None:
     console.print("Commands: `/help` `/exit` `/model` `/session` `/clear`")
 
 
-def _run_one_turn(loop: AgentLoop, *, session_key: str, message: str) -> Any:
-    streamed = {"active": False}
+def _result_from_outbound(msg: OutboundMessage) -> ChatTurnResult:
+    metadata = dict(msg.metadata or {})
+    error = metadata.get("error")
+    return ChatTurnResult(
+        final_content=None if metadata.get("_streamed") else (msg.text or None),
+        stop_reason=str(metadata.get("stop_reason") or "completed"),
+        error=error if isinstance(error, str) else None,
+    )
 
-    async def _on_text_delta(delta: str) -> None:
-        streamed["active"] = True
-        sys.stdout.write(delta)
-        sys.stdout.flush()
 
-    return asyncio.run(
-        loop.process_message(
-            message,
-            session_key=session_key,
-            channel="cli",
-            chat_id=session_key,
-            on_text_delta=_on_text_delta,
+async def _run_one_turn_async(loop: AgentLoop, *, session_key: str, message: str) -> tuple[ChatTurnResult, bool]:
+    bus = MessageBus()
+    loop.bind_bus(bus)
+    loop_task = asyncio.create_task(loop.run())
+    streamed = False
+
+    try:
+        await bus.publish_inbound(
+            InboundMessage(
+                channel="cli",
+                chat_id=session_key,
+                session_key=session_key,
+                sender_id="user",
+                text=message,
+                metadata={"_wants_stream": True},
+            )
         )
-    ), streamed["active"]
+
+        while True:
+            outbound = await bus.consume_outbound()
+            if outbound.channel != "cli" or outbound.session_key != session_key:
+                continue
+            if outbound.metadata.get("_stream_delta"):
+                streamed = True
+                sys.stdout.write(outbound.text)
+                sys.stdout.flush()
+                continue
+            return _result_from_outbound(outbound), streamed
+    finally:
+        loop.stop()
+        loop_task.cancel()
+        await asyncio.gather(loop_task, return_exceptions=True)
+
+
+def _run_one_turn(loop: AgentLoop, *, session_key: str, message: str) -> Any:
+    return asyncio.run(_run_one_turn_async(loop, session_key=session_key, message=message))
 
 
 def _clear_session(loop: AgentLoop, session_key: str) -> None:
