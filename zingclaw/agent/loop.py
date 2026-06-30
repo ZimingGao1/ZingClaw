@@ -4,21 +4,52 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pathlib import Path
+from datetime import datetime
 from typing import Any, Sequence
 
 from zingclaw.agent.context import AgentContext, ContextBuilder
-from zingclaw.agent.runner import AgentRunResult, AgentRunSpec, AgentRunner
-from zingclaw.bus import InboundMessage, MessageBus, OutboundMessage
+from zingclaw.agent.runner import AgentRunner, AgentRunResult, AgentRunSpec
+from zingclaw.agent.subagent import SubagentManager
+from zingclaw.bus import (
+    InboundMessage,
+    MessageBus,
+    OutboundMessage,
+    RuntimeEventBus,
+    RuntimeEventHook,
+    SessionTurnStarted,
+    TurnCompleted,
+    TurnRunStatusChanged,
+    build_runtime_event_context,
+)
 from zingclaw.config import Settings
-from zingclaw.providers import LLMProvider, OpenAICompatProvider, TextDeltaCallback
-from zingclaw.session import Session, SessionManager
-from zingclaw.tools import ToolContext, ToolLoader, ToolRegistry
+from zingclaw.cron import CronService
+from zingclaw.memory import Consolidator, MemoryStore
+from zingclaw.providers import LLMProvider, TextDeltaCallback, create_provider
+from zingclaw.session import Session, SessionManager, should_persist_user_message
+from zingclaw.tools import (
+    INBOUND_META_RUNTIME_CONTROL,
+    RUNTIME_CONTROL_ACK,
+    RUNTIME_CONTROL_MCP_RELOAD,
+    MCPRuntime,
+    MCPServerStatus,
+    ToolContext,
+    ToolLoader,
+    ToolRegistry,
+    preset_runtime_lines,
+    session_extra,
+)
 
 _DEFAULT_CHANNEL = "cli"
 logger = logging.getLogger(__name__)
+
+
+def _default_timezone_name() -> str:
+    tzinfo = datetime.now().astimezone().tzinfo
+    key = getattr(tzinfo, "key", None)
+    return str(key or "UTC")
 
 
 @dataclass(slots=True)
@@ -48,15 +79,47 @@ class AgentLoop:
         context_builder: ContextBuilder | None = None,
         runner: AgentRunner | None = None,
         bus: MessageBus | None = None,
+        runtime_events: RuntimeEventBus | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider or self._build_provider(settings)
         self.sessions = session_manager or SessionManager(settings.sessions_dir)
         self.tools = tools or ToolRegistry()
         self.tool_loader = tool_loader or ToolLoader()
+        self.bus = bus
+        self.timezone = _default_timezone_name()
+        self.mcp = MCPRuntime(settings, workspace=settings.workspace_dir)
+        self.cron = CronService(
+            settings.workspace_dir / "cron" / "jobs.json",
+            self.sessions,
+            default_timezone=self.timezone,
+        )
+        self.subagents = SubagentManager(
+            settings,
+            self.sessions,
+            provider_factory=lambda: self._build_provider(settings),
+            max_concurrent_subagents=settings.agent.max_concurrent_subagents,
+        )
 
         if tools is None:
-            self.tool_loader.load(ToolContext.from_settings(settings), self.tools, scope="core")
+            self.tool_loader.load(
+                ToolContext.from_settings(
+                    settings,
+                    sessions=self.sessions,
+                    bus=self.bus,
+                    subagent_manager=self.subagents,
+                    cron_service=self.cron,
+                    mcp_runtime=self.mcp,
+                    timezone=self.timezone,
+                ),
+                self.tools,
+                scope="core",
+            )
+
+        self.memory = MemoryStore(
+            settings.memory_dir,
+            max_history_entries=settings.memory.max_history_entries,
+        )
 
         self.context = context_builder or ContextBuilder(
             settings,
@@ -65,7 +128,18 @@ class AgentLoop:
             workspace=settings.workspace_dir,
         )
         self.runner = runner or AgentRunner(self.provider)
-        self.bus = bus
+        self.runtime_events = runtime_events or RuntimeEventBus()
+        self.consolidator = (
+            Consolidator(
+                self.memory,
+                self.provider,
+                model=settings.model_name,
+                sessions=self.sessions,
+                consolidation_threshold=settings.memory.consolidation_threshold,
+            )
+            if settings.memory.enabled
+            else None
+        )
         self._running = False
 
     @classmethod
@@ -81,11 +155,7 @@ class AgentLoop:
 
     @staticmethod
     def _build_provider(settings: Settings) -> LLMProvider:
-        return OpenAICompatProvider(
-            api_key=settings.openai_api_key,
-            api_base=settings.openai_api_base,
-            default_model=settings.model_name,
-        )
+        return create_provider(settings)
 
     @property
     def tool_names(self) -> list[str]:
@@ -94,6 +164,10 @@ class AgentLoop:
     def bind_bus(self, bus: MessageBus) -> None:
         """Attach a MessageBus used by ``run()`` for inbound/outbound routing."""
         self.bus = bus
+        message_tool = self.tools.get("message")
+        setter = getattr(message_tool, "set_send_callback", None)
+        if callable(setter):
+            setter(bus.publish_outbound)
 
     def stop(self) -> None:
         """Request the bus-driven loop to stop after the current poll cycle."""
@@ -115,6 +189,8 @@ class AgentLoop:
                     break
 
                 try:
+                    if await self._handle_runtime_control(inbound):
+                        continue
                     await self._dispatch_inbound_message(inbound)
                 except Exception as exc:
                     logger.exception("AgentLoop bus dispatch failed")
@@ -171,6 +247,27 @@ class AgentLoop:
         )
         return result
 
+    async def _handle_runtime_control(self, inbound: InboundMessage) -> bool:
+        metadata = inbound.metadata if isinstance(inbound.metadata, dict) else {}
+        control = metadata.get(INBOUND_META_RUNTIME_CONTROL)
+        if control != RUNTIME_CONTROL_MCP_RELOAD:
+            return False
+
+        ack = metadata.get(RUNTIME_CONTROL_ACK)
+        try:
+            result = await self.reload_mcp()
+        except Exception as exc:
+            logger.exception("AgentLoop MCP reload failed")
+            result = {
+                "ok": False,
+                "message": "MCP hot reload failed. Restart ZingClaw to recover.",
+                "requires_restart": True,
+                "error": str(exc),
+            }
+        if isinstance(ack, asyncio.Future) and not ack.done():
+            ack.set_result(result)
+        return True
+
     @staticmethod
     def _build_outbound_message(
         inbound: InboundMessage,
@@ -217,20 +314,35 @@ class AgentLoop:
         max_iterations_message: str | None = None,
         on_text_delta: TextDeltaCallback | None = None,
     ) -> AgentLoopResult:
-        """Persist one inbound turn, run the agent, and save the outcome."""
+        """Build a turn from prior history, persist the inbound, then run/save the result."""
         meta = dict(metadata or {})
         resolved_chat_id = chat_id or session_key
-
-        session = self.sessions.get_or_create(session_key)
-        self._persist_inbound_message(
-            session,
-            role=current_role,
-            content=message,
+        turn_started_at = time.perf_counter()
+        runtime_context = build_runtime_event_context(
             channel=channel,
             chat_id=resolved_chat_id,
+            session_key=session_key,
             metadata=meta,
         )
-        self.sessions.save(session)
+        await self.runtime_events.publish(SessionTurnStarted(context=runtime_context))
+        await self.runtime_events.publish(
+            TurnRunStatusChanged(context=runtime_context, status="building_context")
+        )
+
+        session = self.sessions.get_or_create(session_key)
+        persisted_mcp = session_extra(meta)
+        if persisted_mcp:
+            session.metadata.update(persisted_mcp)
+        elif "mcp_presets" in meta and not meta.get("mcp_presets"):
+            session.metadata.pop("mcp_presets", None)
+
+        if session.restore_pending_user_turn():
+            self.sessions.save(session)
+
+        await self.mcp.connect_missing_servers(self.tools)
+        runtime_lines = self._merged_mcp_runtime_lines(meta, session.metadata)
+        if runtime_lines:
+            meta["_mcp_runtime_lines"] = runtime_lines
 
         ctx = self._build_turn_context(
             session=session,
@@ -242,6 +354,14 @@ class AgentLoop:
             metadata=meta,
             extra_runtime_lines=extra_runtime_lines,
         )
+        inbound_persisted = self._persist_current_turn_early(
+            session,
+            role=current_role,
+            content=message,
+            channel=channel,
+            chat_id=resolved_chat_id,
+            metadata=meta,
+        )
 
         run_result = await self.runner.run(
             AgentRunSpec.from_context(
@@ -252,12 +372,38 @@ class AgentLoop:
                 tool_choice=tool_choice,
                 error_message=error_message,
                 max_iterations_message=max_iterations_message,
+                provider_retry_mode=self.settings.agent.provider_retry_mode,
                 on_text_delta=on_text_delta,
+                hooks=[
+                    RuntimeEventHook(
+                        self.runtime_events,
+                        channel=channel,
+                        chat_id=resolved_chat_id,
+                        session_key=session_key,
+                        metadata=meta,
+                    )
+                ],
             )
         )
 
         persisted_messages = self._persist_runner_messages(session, ctx, run_result)
+        if inbound_persisted:
+            session.clear_pending_user_turn()
         self.sessions.save(session)
+        if self.consolidator is not None:
+            await self.consolidator.maybe_consolidate(session)
+
+        await self.runtime_events.publish(
+            TurnCompleted(
+                context=runtime_context,
+                stop_reason=run_result.stop_reason,
+                final_content=run_result.final_content,
+                tools_used=list(run_result.tools_used),
+                usage=dict(run_result.usage),
+                error=run_result.error,
+                latency_ms=max(0, int((time.perf_counter() - turn_started_at) * 1000)),
+            )
+        )
 
         return AgentLoopResult(
             session_key=session_key,
@@ -268,6 +414,40 @@ class AgentLoop:
             tools_used=list(run_result.tools_used),
             usage=dict(run_result.usage),
         )
+
+    def _merged_mcp_runtime_lines(
+        self,
+        message_metadata: dict[str, Any],
+        session_metadata: dict[str, Any],
+    ) -> list[str]:
+        merged_runtime_lines: list[str] = []
+        existing_runtime_lines = message_metadata.get("_mcp_runtime_lines")
+        if isinstance(existing_runtime_lines, Sequence) and not isinstance(
+            existing_runtime_lines,
+            (str, bytes, bytearray),
+        ):
+            merged_runtime_lines.extend(
+                str(line)
+                for line in existing_runtime_lines
+                if str(line).strip()
+            )
+        merged_runtime_lines.extend(self.mcp.runtime_lines())
+        merged_runtime_lines.extend(
+            preset_runtime_lines(
+                message_metadata if message_metadata.get("mcp_presets") is not None else session_metadata,
+                configured_server_names=self.mcp.configured_server_names,
+                connected_server_names=self.mcp.connected_server_names,
+            )
+        )
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for line in merged_runtime_lines:
+            key = line.strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            deduped.append(key)
+        return deduped
 
     def _build_turn_context(
         self,
@@ -281,41 +461,69 @@ class AgentLoop:
         metadata: dict[str, Any],
         extra_runtime_lines: Sequence[str] | None = None,
     ) -> AgentContext:
-        history = session.get_history(
-            max_messages=120,
-            max_tokens=0,
-            include_timestamps=True,
-            extend_to_user=current_role != "user",
-        )
-        messages = self.context.build_messages(
-            history=history,
-            current_message="",
+        ctx = self.context.prepare_turn(
+            session_key=session_key,
+            current_message=current_message,
             current_role=current_role,
             tools=self.tools,
             channel=channel,
             chat_id=chat_id,
-            session_key=session_key,
             workspace=self.settings.workspace_dir,
             metadata=metadata,
+            history_max_messages=120,
+            history_max_tokens=0,
+            include_timestamps=True,
+            extend_to_user=current_role != "user",
             extra_runtime_lines=extra_runtime_lines,
         )
         return AgentContext(
-            session_key=session_key,
-            session=session,
-            history=history,
-            messages=messages,
-            tools=self.tools,
-            tool_definitions=self.tools.get_definitions(),
-            workspace=self.settings.workspace_dir,
-            current_message=current_message,
+            session_key=ctx.session_key,
+            session=ctx.session,
+            history=ctx.history,
+            messages=ctx.messages,
+            tools=ctx.tools,
+            tool_definitions=ctx.tool_definitions,
+            workspace=ctx.workspace,
+            current_message=ctx.current_message,
+            current_media=list(ctx.current_media),
             current_role=current_role,
-            model=self.settings.model_name,
-            max_iterations=self.settings.max_iterations,
-            max_tool_result_chars=self.settings.max_tool_result_chars,
+            model=ctx.model,
+            max_iterations=ctx.max_iterations,
+            max_tool_result_chars=ctx.max_tool_result_chars,
+            channel=ctx.channel,
+            chat_id=ctx.chat_id,
+            metadata=dict(ctx.metadata),
+        )
+
+    def _persist_current_turn_early(
+        self,
+        session: Session,
+        *,
+        role: str,
+        content: Any,
+        channel: str,
+        chat_id: str,
+        metadata: dict[str, Any],
+    ) -> bool:
+        if role == "user" and not should_persist_user_message(metadata):
+            return False
+        if role == "user" and not str(content or "").strip():
+            return False
+        if role != "user" and content is None:
+            return False
+
+        self._persist_inbound_message(
+            session,
+            role=role,
+            content=content,
             channel=channel,
             chat_id=chat_id,
-            metadata=dict(metadata),
+            metadata=metadata,
         )
+        if role == "user":
+            session.mark_pending_user_turn()
+        self.sessions.save(session)
+        return True
 
     @staticmethod
     def _persist_inbound_message(
@@ -343,7 +551,7 @@ class AgentLoop:
         run_result: AgentRunResult,
     ) -> list[dict[str, Any]]:
         messages = deepcopy(run_result.messages)
-        appended = messages[1 + len(ctx.history) :]
+        appended = messages[len(ctx.messages) :]
 
         for message in appended:
             self._append_message_dict(session, message)
@@ -387,16 +595,39 @@ class AgentLoop:
     def delete_session(self, key: str) -> bool:
         return self.sessions.delete_session(key)
 
+    def drain_subagent_notifications(self, session_key: str) -> list[str]:
+        return self.subagents.drain_notifications(session_key)
+
+    def drain_cron_notifications(self, session_key: str) -> list[str]:
+        return self.cron.drain_notifications(session_key)
+
+    async def get_mcp_status(self, *, connect_missing: bool = True) -> list[MCPServerStatus]:
+        if connect_missing:
+            await self.mcp.connect_missing_servers(self.tools)
+        return self.mcp.status()
+
+    async def reload_mcp(self) -> dict[str, Any]:
+        refreshed_settings = Settings(
+            config_path=self.settings.resolved_config_path,
+            home_dir=self.settings.home_dir,
+        )
+        result = await self.mcp.reload(refreshed_settings, registry=self.tools)
+        self.settings.mcp_servers = [server.model_copy(deep=True) for server in refreshed_settings.mcp_servers]
+        return result
+
     async def aclose(self) -> None:
         """Flush session state for graceful shutdown."""
         self.stop()
+        self.cron.stop(wait=True)
+        self.subagents.shutdown(wait=False)
+        await self.mcp.aclose()
         self.sessions.flush_all()
 
     def close(self) -> None:
         """Synchronous wrapper for graceful shutdown."""
         self.stop()
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             asyncio.run(self.aclose())
             return

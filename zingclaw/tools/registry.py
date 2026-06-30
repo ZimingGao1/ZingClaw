@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from zingclaw.tools.base import Tool
+from zingclaw.tools.context import RequestContext
 
 
 class ToolRegistry:
@@ -130,12 +131,24 @@ class ToolRegistry:
 
         return tool, cast_params, None
 
-    async def execute(self, name: str, params: Any) -> Any:
+    async def execute(
+        self,
+        name: str,
+        params: Any,
+        *,
+        request_context: RequestContext | None = None,
+    ) -> Any:
         """Execute a tool by name and return either its result or an actionable error string."""
         hint = "\n\n[Analyze the error above and try a different approach.]"
         tool, params, error = self.prepare_call(name, params)
         if error:
             return error + hint
+
+        token: Any = None
+        if request_context is not None:
+            setter = getattr(tool, "set_context", None)
+            if callable(setter):
+                token = setter(request_context)
 
         try:
             assert tool is not None
@@ -145,6 +158,11 @@ class ToolRegistry:
             return result
         except Exception as exc:
             return f"Error executing {name}: {exc}" + hint
+        finally:
+            if token is not None:
+                reset = getattr(tool, "reset_context", None)
+                if callable(reset):
+                    reset(token)
 
     @property
     def tool_names(self) -> list[str]:

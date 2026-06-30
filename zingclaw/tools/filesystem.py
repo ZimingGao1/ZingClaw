@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from zingclaw.security import WorkspaceAccessPolicy
 from zingclaw.tools.base import Tool, tool_parameters
 
 _DEFAULT_MAX_RESULT_CHARS = 16_000
@@ -17,18 +18,6 @@ class _MatchSpan:
     end: int
     text: str
     line: int
-
-
-def _resolve_path(raw_path: str, *, base_dir: Path) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = base_dir / path
-    return path.resolve(strict=False)
-
-
-def _is_within(path: Path, root: Path) -> bool:
-    return path == root or root in path.parents
-
 
 def _coerce_directory_list(paths: list[Path] | None) -> list[Path]:
     return [Path(path).expanduser().resolve(strict=False) for path in (paths or [])]
@@ -59,7 +48,7 @@ class _FsTool(Tool):
     """Shared base for filesystem tools with workspace-aware path resolution."""
 
     config_key = "file"
-    _scopes = {"core"}
+    _scopes = {"core", "subagent"}
 
     def __init__(
         self,
@@ -91,50 +80,35 @@ class _FsTool(Tool):
         self._extra_write_allowed_dirs = _coerce_directory_list(extra_write_allowed_dirs)
         self._extra_write_allowed_files = _coerce_file_list(extra_write_allowed_files)
         self._max_result_chars = max(512, int(max_result_chars))
+        self._read_access = WorkspaceAccessPolicy(
+            workspace_root=self._workspace,
+            restrict_to_workspace=self._restrict_to_workspace,
+            allowed_root=self._allowed_dir,
+            extra_allowed_roots=tuple(self._extra_read_allowed_dirs),
+        )
+        self._write_access = WorkspaceAccessPolicy(
+            workspace_root=self._workspace,
+            restrict_to_workspace=self._restrict_to_workspace,
+            allowed_root=self._allowed_dir,
+            extra_allowed_roots=tuple(self._extra_write_allowed_dirs),
+            extra_allowed_files=tuple(self._extra_write_allowed_files),
+        )
 
     @classmethod
     def create(cls, ctx: Any) -> Tool:
+        restrict = bool(getattr(ctx, "restrict_to_workspace", True))
         return cls(
             workspace=Path(ctx.workspace),
-            allowed_dir=Path(ctx.workspace),
-            restrict_to_workspace=True,
+            allowed_dir=Path(ctx.workspace) if restrict else None,
+            restrict_to_workspace=restrict,
             max_result_chars=int(getattr(ctx, "max_tool_result_chars", _DEFAULT_MAX_RESULT_CHARS)),
         )
 
-    def _resolve_with_policy(
-        self,
-        path: str,
-        *,
-        extra_allowed_dirs: list[Path] | None = None,
-        extra_allowed_files: list[Path] | None = None,
-    ) -> Path:
-        candidate = _resolve_path(path, base_dir=self._workspace)
-        allowed_dirs: list[Path] = []
-        if self._restrict_to_workspace and self._allowed_dir is not None:
-            allowed_dirs.append(self._allowed_dir)
-        allowed_dirs.extend(extra_allowed_dirs or [])
-
-        if not allowed_dirs and not extra_allowed_files:
-            return candidate
-
-        if any(_is_within(candidate, root) for root in allowed_dirs):
-            return candidate
-        if any(candidate == allowed_file for allowed_file in (extra_allowed_files or [])):
-            return candidate
-
-        raise PermissionError(
-            f"Path '{path}' resolves outside the allowed workspace boundary: {candidate}"
-        )
-
     def _resolve_read(self, path: str) -> Path:
-        return self._resolve_with_policy(path, extra_allowed_dirs=self._extra_read_allowed_dirs)
+        return self._read_access.resolve_path(path)
 
     def _resolve_write(self, path: str) -> Path:
-        return self._resolve_with_policy(
-            path,
-            extra_allowed_dirs=self._extra_write_allowed_dirs,
-            extra_allowed_files=self._extra_write_allowed_files,
-        )
+        return self._write_access.resolve_path(path)
 
     def _truncate_text(self, text: str, *, suffix: str | None = None) -> str:
         if len(text) <= self._max_result_chars:
@@ -282,6 +256,8 @@ class ReadFileTool(_FsTool):
     def description(self) -> str:
         return (
             "Read a UTF-8 text file. "
+            "Use find_files/list_dir first when you still need to locate the right file, "
+            "and read the file before editing it. "
             "Output is line-numbered as LINE| CONTENT. "
             "Use start_line and end_line to page through large files."
         )
@@ -395,8 +371,9 @@ class WriteFileTool(_FsTool):
     @property
     def description(self) -> str:
         return (
-            "Create or replace a UTF-8 text file. "
-            "Creates parent directories as needed."
+            "Create or replace an entire UTF-8 text file. "
+            "Creates parent directories as needed. "
+            "Prefer apply_patch for multi-file code edits or partial in-file changes."
         )
 
     async def execute(self, path: str | None = None, content: str | None = None, **kwargs: Any) -> str:
@@ -461,8 +438,9 @@ class EditFileTool(_FsTool):
     @property
     def description(self) -> str:
         return (
-            "Replace exact text in a UTF-8 file. "
+            "Make a small exact replacement in one UTF-8 file. "
             "Use text copied from read_file. "
+            "Prefer apply_patch for larger or multi-file code edits. "
             "If the text appears multiple times, set occurrence, line_hint, or replace_all."
         )
 

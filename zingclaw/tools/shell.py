@@ -14,14 +14,20 @@ from typing import Any
 
 from loguru import logger
 
+from zingclaw.security import WORKSPACE_BOUNDARY_NOTE, WorkspaceAccessPolicy
 from zingclaw.tools.base import Tool, tool_parameters
+from zingclaw.tools.exec_session import (
+    DEFAULT_EXEC_SESSION_MANAGER,
+    DEFAULT_YIELD_MS,
+    MAX_OUTPUT_CHARS,
+    MAX_YIELD_MS,
+    _ExecRequestContextMixin,
+    clamp_session_int,
+    format_session_poll,
+)
+from zingclaw.tools.sandbox import available_backends, sandbox_backend_available, wrap_command
 
 _IS_WINDOWS = sys.platform == "win32"
-_WORKSPACE_BOUNDARY_NOTE = (
-    "\n\nNote: this is a hard policy boundary, not a transient failure. "
-    "Do NOT retry with shell tricks or path workarounds. "
-    "If the user really needs this resource, ask how they want to proceed."
-)
 
 
 @dataclass(slots=True)
@@ -32,10 +38,6 @@ class _PreparedCommand:
     timeout: int | None
     shell_program: str | None
     login: bool
-
-
-def _is_path_within(path: Path, root: Path) -> bool:
-    return path == root or root in path.parents
 
 
 @tool_parameters(
@@ -60,11 +62,33 @@ def _is_path_within(path: Path, root: Path) -> bool:
                 "type": ["boolean", "null"],
                 "description": "Whether bash/zsh should use login shell semantics",
             },
+            "yield_time_ms": {
+                "type": ["integer", "null"],
+                "description": (
+                    "Optional milliseconds to wait before returning output. "
+                    "When set, a still-running command returns a session_id that can be "
+                    "polled or written to with write_stdin."
+                ),
+                "minimum": 0,
+                "maximum": MAX_YIELD_MS,
+            },
+            "max_output_chars": {
+                "type": ["integer", "null"],
+                "description": "Maximum output characters to return",
+                "minimum": 1000,
+                "maximum": MAX_OUTPUT_CHARS,
+            },
+            "max_output_tokens": {
+                "type": ["integer", "null"],
+                "description": "Compatibility alias for max_output_chars",
+                "minimum": 1000,
+                "maximum": MAX_OUTPUT_CHARS,
+            },
         },
         "additionalProperties": False,
     }
 )
-class ExecTool(Tool):
+class ExecTool(Tool, _ExecRequestContextMixin):
     """Execute a shell command inside the current workspace boundary."""
 
     _scopes = {"core", "subagent"}
@@ -88,10 +112,16 @@ class ExecTool(Tool):
 
     @classmethod
     def create(cls, ctx: Any) -> Tool:
+        restrict = bool(getattr(ctx, "restrict_to_workspace", True))
         return cls(
             working_dir=str(Path(ctx.workspace)),
             timeout=cls._DEFAULT_TIMEOUT,
-            restrict_to_workspace=True,
+            restrict_to_workspace=restrict,
+            sandbox=(
+                str(getattr(getattr(ctx, "settings", None), "security", None).exec_sandbox)
+                if getattr(getattr(ctx, "settings", None), "security", None) is not None
+                else ""
+            ),
             max_output_chars=int(getattr(ctx, "max_tool_result_chars", cls._DEFAULT_MAX_OUTPUT)),
         )
 
@@ -102,18 +132,29 @@ class ExecTool(Tool):
         deny_patterns: list[str] | None = None,
         allow_patterns: list[str] | None = None,
         restrict_to_workspace: bool = False,
+        sandbox: str = "",
         path_prepend: str = "",
         path_append: str = "",
         allowed_env_keys: list[str] | None = None,
         max_output_chars: int = _DEFAULT_MAX_OUTPUT,
+        session_manager: Any | None = None,
     ) -> None:
+        _ExecRequestContextMixin.__init__(self)
         self.timeout = timeout
         self.working_dir = working_dir
         self.restrict_to_workspace = restrict_to_workspace
+        self.sandbox = sandbox.strip().lower()
         self.path_prepend = path_prepend
         self.path_append = path_append
         self.allowed_env_keys = allowed_env_keys or []
         self.max_output_chars = max(1000, int(max_output_chars))
+        self._session_manager = session_manager or DEFAULT_EXEC_SESSION_MANAGER
+        self._workspace_root = Path(self.working_dir or os.getcwd()).expanduser().resolve(strict=False)
+        self._workspace_access = WorkspaceAccessPolicy(
+            workspace_root=self._workspace_root,
+            restrict_to_workspace=self.restrict_to_workspace,
+            allowed_root=self._workspace_root if self.restrict_to_workspace else None,
+        )
         self.deny_patterns = (deny_patterns or []) + [
             r"\brm\s+-[rf]{1,2}\b",
             r"\bdel\s+/[fq]\b",
@@ -136,7 +177,10 @@ class ExecTool(Tool):
         return (
             "Execute a shell command and return its output. "
             "Use this for tests, builds, package commands, and git commands. "
-            "Prefer file tools for file inspection and editing instead of shell hacks. "
+            "Prefer read_file/find_files/grep for inspection and apply_patch/write_file/edit_file "
+            "for code changes instead of shell hacks. "
+            "For long-running or interactive commands, pass yield_time_ms; if the command keeps "
+            "running, exec returns a session_id that can be polled or written to with write_stdin. "
             "Output is truncated and commands are limited to the workspace by default."
         )
 
@@ -153,6 +197,9 @@ class ExecTool(Tool):
         timeout: int | None = None,
         shell: str | None = None,
         login: bool | None = None,
+        yield_time_ms: int | None = None,
+        max_output_chars: int | None = None,
+        max_output_tokens: int | None = None,
         **kwargs: Any,
     ) -> str:
         del kwargs
@@ -160,10 +207,15 @@ class ExecTool(Tool):
         working_dir = working_dir or workdir
         if not command:
             return "Error: Missing command. Provide command or cmd."
+        if max_output_chars is None:
+            max_output_chars = max_output_tokens
 
         prepared = self._prepare_command(command, working_dir, timeout, shell, login)
         if isinstance(prepared, str):
             return prepared
+
+        if yield_time_ms is not None:
+            return await self._execute_session(prepared, yield_time_ms, max_output_chars)
 
         try:
             process = await self._spawn(
@@ -194,7 +246,42 @@ class ExecTool(Tool):
                     output_parts.append(f"STDERR:\n{stderr_text}")
             output_parts.append(f"\nExit code: {process.returncode}")
             result = "\n".join(output_parts) if output_parts else "(no output)"
-            return self._truncate_output(result)
+            return self._truncate_output(
+                result,
+                limit=clamp_session_int(
+                    max_output_chars,
+                    self.max_output_chars,
+                    1000,
+                    MAX_OUTPUT_CHARS,
+                ),
+            )
+        except Exception as exc:
+            return f"Error executing command: {exc}"
+
+    async def _execute_session(
+        self,
+        prepared: _PreparedCommand,
+        yield_time_ms: int | None,
+        max_output_chars: int | None,
+    ) -> str:
+        try:
+            session_id, poll = await self._session_manager.start(
+                command=prepared.command,
+                cwd=prepared.cwd,
+                env=prepared.env,
+                timeout=prepared.timeout,
+                shell_program=prepared.shell_program,
+                login=prepared.login,
+                yield_time_ms=clamp_session_int(yield_time_ms, DEFAULT_YIELD_MS, 0, MAX_YIELD_MS),
+                max_output_chars=clamp_session_int(
+                    max_output_chars,
+                    self.max_output_chars,
+                    1000,
+                    MAX_OUTPUT_CHARS,
+                ),
+                owner_session_key=self._owner_session_key(),
+            )
+            return format_session_poll(session_id, poll)
         except Exception as exc:
             return f"Error executing command: {exc}"
 
@@ -213,19 +300,19 @@ class ExecTool(Tool):
         shell: str | None = None,
         login: bool | None = None,
     ) -> _PreparedCommand | str:
-        workspace_root = str(
-            Path(self.working_dir or os.getcwd()).expanduser().resolve(strict=False)
-        )
-        cwd = working_dir or workspace_root
-
         if self.restrict_to_workspace:
             try:
-                requested = Path(cwd).expanduser().resolve(strict=False)
-                resolved_root = Path(workspace_root).expanduser().resolve(strict=False)
+                cwd_path = self._workspace_access.validate_working_dir(working_dir)
+            except Exception as exc:
+                return f"Error: {exc}"
+            cwd = str(cwd_path)
+        else:
+            try:
+                cwd = str(self._workspace_access.validate_working_dir(working_dir))
             except Exception:
-                return "Error: working_dir could not be resolved" + _WORKSPACE_BOUNDARY_NOTE
-            if not _is_path_within(requested, resolved_root):
-                return "Error: working_dir is outside the configured workspace" + _WORKSPACE_BOUNDARY_NOTE
+                return "Error: working_dir could not be resolved" + WORKSPACE_BOUNDARY_NOTE
+
+        workspace_root = str(self._workspace_access.workspace_root)
 
         guard_error = self._guard_command(
             command,
@@ -237,6 +324,21 @@ class ExecTool(Tool):
             return guard_error
 
         env = self._build_env()
+
+        if self.sandbox:
+            if _IS_WINDOWS:
+                return f"Error: sandbox backend {self.sandbox!r} is not supported on Windows"
+            if not sandbox_backend_available(self.sandbox):
+                return (
+                    f"Error: sandbox backend {self.sandbox!r} is not available on this system. "
+                    f"Available backends: {', '.join(available_backends()) or '(none)'}"
+                )
+            try:
+                command = wrap_command(self.sandbox, command, workspace_root, cwd)
+            except ValueError as exc:
+                return f"Error: {exc}"
+            cwd = workspace_root
+
         if self.path_prepend or self.path_append:
             if _IS_WINDOWS:
                 env["PATH"] = self._compose_path(env.get("PATH", ""))
@@ -285,6 +387,8 @@ class ExecTool(Tool):
         env: dict[str, str],
         shell_program: str | None = None,
         login: bool = True,
+        *,
+        stdin: int = asyncio.subprocess.DEVNULL,
     ) -> asyncio.subprocess.Process:
         if _IS_WINDOWS:
             if "\n" in command:
@@ -293,6 +397,7 @@ class ExecTool(Tool):
                     "-NoProfile",
                     "-Command",
                     command,
+                    stdin=stdin,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
@@ -300,6 +405,7 @@ class ExecTool(Tool):
                 )
             return await asyncio.create_subprocess_shell(
                 command,
+                stdin=stdin,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
@@ -314,6 +420,7 @@ class ExecTool(Tool):
         args.extend(["-c", command])
         return await asyncio.create_subprocess_exec(
             *args,
+            stdin=stdin,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
@@ -389,13 +496,14 @@ class ExecTool(Tool):
                 env[key] = value
         return env
 
-    def _truncate_output(self, result: str) -> str:
-        if len(result) <= self.max_output_chars:
+    def _truncate_output(self, result: str, *, limit: int | None = None) -> str:
+        limit = self.max_output_chars if limit is None else max(1000, int(limit))
+        if len(result) <= limit:
             return result
-        half = self.max_output_chars // 2
+        half = limit // 2
         return (
             result[:half]
-            + f"\n\n... ({len(result) - self.max_output_chars:,} chars truncated) ...\n\n"
+            + f"\n\n... ({len(result) - limit:,} chars truncated) ...\n\n"
             + result[-half:]
         )
 
@@ -425,14 +533,18 @@ class ExecTool(Tool):
             if "..\\" in cmd or "../" in cmd:
                 return (
                     "Error: Command blocked by safety guard (path traversal detected)"
-                    + _WORKSPACE_BOUNDARY_NOTE
+                    + WORKSPACE_BOUNDARY_NOTE
                 )
 
             cwd_path = Path(cwd).expanduser().resolve(strict=False)
-            resolved_workspace = (
-                Path(workspace_root).expanduser().resolve(strict=False)
+            access = WorkspaceAccessPolicy(
+                workspace_root=Path(workspace_root).expanduser().resolve(strict=False)
                 if workspace_root
-                else None
+                else self._workspace_root,
+                restrict_to_workspace=should_restrict,
+                allowed_root=Path(workspace_root).expanduser().resolve(strict=False)
+                if workspace_root and should_restrict
+                else None,
             )
 
             for raw in self._extract_absolute_paths(cmd):
@@ -447,13 +559,10 @@ class ExecTool(Tool):
                 if self._is_benign_device_path(str(resolved)):
                     continue
 
-                allowed = _is_path_within(resolved, cwd_path)
-                if not allowed and resolved_workspace is not None:
-                    allowed = _is_path_within(resolved, resolved_workspace)
-                if resolved.is_absolute() and not allowed:
+                if resolved.is_absolute() and not access.allows_command_path(resolved, cwd=cwd_path):
                     return (
                         "Error: Command blocked by safety guard (path outside working dir)"
-                        + _WORKSPACE_BOUNDARY_NOTE
+                        + WORKSPACE_BOUNDARY_NOTE
                     )
 
         return None

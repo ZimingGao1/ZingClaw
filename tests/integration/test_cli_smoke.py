@@ -13,5 +13,7 @@ def test_status_command_runs(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "ZingClaw Status" in result.stdout
     assert "workspace" in result.stdout
+    assert "provider" in result.stdout
+    assert "skills" in result.stdout
 
     reset_settings_cache()

@@ -9,8 +9,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from zingclaw.agent.hook import AgentHook, AgentHookContext, AgentRunHookContext, CompositeHook
 from zingclaw.providers import LLMProvider, LLMResponse, TextDeltaCallback
-from zingclaw.tools import ToolRegistry
+from zingclaw.tools import RequestContext, ToolRegistry
 
 if TYPE_CHECKING:
     from zingclaw.agent.context import AgentContext
@@ -41,8 +42,12 @@ class AgentRunSpec:
     max_iterations_message: str | None = _DEFAULT_MAX_ITERATIONS_MESSAGE
     provider_retry_mode: str = "standard"
     session_key: str | None = None
+    channel: str | None = None
+    chat_id: str | None = None
     workspace: Path | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     on_text_delta: TextDeltaCallback | None = None
+    hooks: list[AgentHook] = field(default_factory=list)
 
     @classmethod
     def from_context(
@@ -58,7 +63,10 @@ class AgentRunSpec:
             max_iterations=ctx.max_iterations,
             max_tool_result_chars=ctx.max_tool_result_chars,
             session_key=ctx.session_key,
+            channel=ctx.channel,
+            chat_id=ctx.chat_id,
             workspace=ctx.workspace,
+            metadata=deepcopy(ctx.metadata),
             **overrides,
         )
 
@@ -91,80 +99,169 @@ class AgentRunner:
         tools_used: list[str] = []
         usage: dict[str, int] = {}
         tool_definitions = spec.tools.get_definitions() or None
+        hooks = CompositeHook(spec.hooks)
+        run_ctx = AgentRunHookContext(
+            messages=messages,
+            session_key=spec.session_key,
+            channel=spec.channel,
+            chat_id=spec.chat_id,
+            metadata=deepcopy(spec.metadata),
+        )
+        await hooks.before_run(run_ctx)
 
-        for iteration in range(max(1, int(spec.max_iterations))):
-            try:
-                response = await self.provider.chat_with_retry(
+        try:
+            for iteration in range(max(1, int(spec.max_iterations))):
+                iter_ctx = AgentHookContext(
+                    iteration=iteration + 1,
                     messages=messages,
-                    tools=tool_definitions,
-                    model=spec.model,
-                    max_tokens=spec.max_tokens,
-                    temperature=spec.temperature,
-                    reasoning_effort=spec.reasoning_effort,
-                    tool_choice=spec.tool_choice,
-                    retry_mode=spec.provider_retry_mode,
-                    on_text_delta=spec.on_text_delta,
-                )
-            except Exception as exc:
-                logger.exception("Runner model call crashed on iteration %s", iteration)
-                return AgentRunResult(
-                    final_content=spec.error_message or f"Error: {exc}",
-                    messages=messages,
-                    tools_used=tools_used,
+                    session_key=spec.session_key,
+                    channel=spec.channel,
+                    chat_id=spec.chat_id,
+                    metadata=deepcopy(spec.metadata),
                     usage=usage,
-                    stop_reason="error",
-                    error=f"Error calling LLM: {exc}",
                 )
+                await hooks.before_iteration(iter_ctx)
 
-            self._accumulate_usage(usage, response.usage)
+                async def _forward_text_delta(delta: str) -> None:
+                    if spec.on_text_delta is not None:
+                        await spec.on_text_delta(delta)
+                    await hooks.on_text_delta(iter_ctx, delta)
 
-            if response.finish_reason == "error":
-                return AgentRunResult(
-                    final_content=spec.error_message or response.content or "",
-                    messages=messages,
-                    tools_used=tools_used,
-                    usage=usage,
-                    stop_reason="error",
-                    error=response.content,
-                )
-
-            assistant_message = self._build_assistant_message(response)
-            if assistant_message is not None:
-                messages.append(assistant_message)
-
-            if response.should_execute_tools:
-                for tool_call in response.tool_calls:
-                    tools_used.append(tool_call.name)
-                    raw_result = await spec.tools.execute(tool_call.name, tool_call.arguments)
-                    tool_result = self._format_tool_result(raw_result, spec.max_tool_result_chars)
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": tool_call.name,
-                            "content": tool_result,
-                        }
+                try:
+                    response = await self.provider.chat_with_retry(
+                        messages=messages,
+                        tools=tool_definitions,
+                        model=spec.model,
+                        max_tokens=spec.max_tokens,
+                        temperature=spec.temperature,
+                        reasoning_effort=spec.reasoning_effort,
+                        tool_choice=spec.tool_choice,
+                        retry_mode=spec.provider_retry_mode,
+                        on_text_delta=(
+                            _forward_text_delta
+                            if spec.on_text_delta is not None or hooks.wants_streaming()
+                            else None
+                        ),
                     )
+                except Exception as exc:
+                    logger.exception("Runner model call crashed on iteration %s", iteration)
+                    result = AgentRunResult(
+                        final_content=spec.error_message or f"Error: {exc}",
+                        messages=messages,
+                        tools_used=tools_used,
+                        usage=usage,
+                        stop_reason="error",
+                        error=f"Error calling LLM: {exc}",
+                    )
+                    run_ctx.final_content = result.final_content
+                    run_ctx.tools_used = list(tools_used)
+                    run_ctx.usage = dict(usage)
+                    run_ctx.stop_reason = result.stop_reason
+                    run_ctx.error = result.error
+                    run_ctx.exception = exc
+                    await hooks.on_error(run_ctx)
+                    return result
 
-                continue
+                iter_ctx.response = response
+                self._accumulate_usage(usage, response.usage)
 
-            return AgentRunResult(
-                final_content=response.content or "",
+                if response.finish_reason == "error":
+                    iter_ctx.stop_reason = "error"
+                    iter_ctx.error = response.content
+                    await hooks.after_iteration(iter_ctx)
+                    result = AgentRunResult(
+                        final_content=spec.error_message or response.content or "",
+                        messages=messages,
+                        tools_used=tools_used,
+                        usage=usage,
+                        stop_reason="error",
+                        error=response.content,
+                    )
+                    run_ctx.final_content = result.final_content
+                    run_ctx.tools_used = list(tools_used)
+                    run_ctx.usage = dict(usage)
+                    run_ctx.stop_reason = result.stop_reason
+                    run_ctx.error = result.error
+                    await hooks.after_run(run_ctx)
+                    return result
+
+                assistant_message = self._build_assistant_message(response)
+                if assistant_message is not None:
+                    messages.append(assistant_message)
+
+                if response.should_execute_tools:
+                    iter_ctx.tool_calls = list(response.tool_calls)
+                    await hooks.before_execute_tools(iter_ctx)
+
+                    tool_results: list[str] = []
+                    for tool_call in response.tool_calls:
+                        tools_used.append(tool_call.name)
+                        raw_result = await spec.tools.execute(
+                            tool_call.name,
+                            tool_call.arguments,
+                            request_context=RequestContext(
+                                session_key=spec.session_key,
+                                channel=spec.channel,
+                                chat_id=spec.chat_id,
+                                workspace=spec.workspace,
+                                metadata=deepcopy(spec.metadata),
+                            ),
+                        )
+                        tool_result = self._format_tool_result(raw_result, spec.max_tool_result_chars)
+                        tool_results.append(tool_result)
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": tool_call.name,
+                                "content": tool_result,
+                            }
+                        )
+
+                    iter_ctx.tool_results = tool_results
+                    iter_ctx.stop_reason = "tool_calls"
+                    await hooks.after_iteration(iter_ctx)
+                    continue
+
+                iter_ctx.final_content = response.content or ""
+                iter_ctx.stop_reason = "completed"
+                await hooks.after_iteration(iter_ctx)
+
+                result = AgentRunResult(
+                    final_content=response.content or "",
+                    messages=messages,
+                    tools_used=tools_used,
+                    usage=usage,
+                    stop_reason="completed",
+                    error=None,
+                )
+                run_ctx.messages = result.messages
+                run_ctx.final_content = result.final_content
+                run_ctx.tools_used = list(result.tools_used)
+                run_ctx.usage = dict(result.usage)
+                run_ctx.stop_reason = result.stop_reason
+                run_ctx.error = result.error
+                await hooks.after_run(run_ctx)
+                return result
+
+            result = AgentRunResult(
+                final_content=spec.max_iterations_message or "",
                 messages=messages,
                 tools_used=tools_used,
                 usage=usage,
-                stop_reason="completed",
+                stop_reason="max_iterations",
                 error=None,
             )
-
-        return AgentRunResult(
-            final_content=spec.max_iterations_message or "",
-            messages=messages,
-            tools_used=tools_used,
-            usage=usage,
-            stop_reason="max_iterations",
-            error=None,
-        )
+            run_ctx.messages = result.messages
+            run_ctx.final_content = result.final_content
+            run_ctx.tools_used = list(result.tools_used)
+            run_ctx.usage = dict(result.usage)
+            run_ctx.stop_reason = result.stop_reason
+            run_ctx.error = result.error
+            await hooks.after_run(run_ctx)
+            return result
+        finally:
+            await hooks.on_finally(run_ctx)
 
     @staticmethod
     def _build_assistant_message(response: LLMResponse) -> dict[str, Any] | None:

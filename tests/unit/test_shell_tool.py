@@ -131,3 +131,49 @@ async def test_exec_allows_whitelisted_env_keys(tmp_path: Path, monkeypatch: pyt
     result = await tool.execute(command=command)
 
     assert "allowed-value" in result
+
+
+def test_prepare_command_wraps_with_configured_sandbox(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=True, sandbox="bwrap")
+
+    monkeypatch.setattr("zingclaw.tools.shell._IS_WINDOWS", False)
+    monkeypatch.setattr("zingclaw.tools.shell.sandbox_backend_available", lambda name: name == "bwrap")
+    monkeypatch.setattr(
+        "zingclaw.tools.shell.wrap_command",
+        lambda sandbox, command, workspace, cwd: f"wrapped::{sandbox}::{command}::{workspace}::{cwd}",
+    )
+
+    prepared = tool._prepare_command("echo hello")
+
+    assert not isinstance(prepared, str)
+    assert prepared.command == (
+        f"wrapped::bwrap::echo hello::{tmp_path.resolve()}::{tmp_path.resolve()}"
+    )
+    assert prepared.cwd == str(tmp_path.resolve())
+
+
+def test_prepare_command_errors_when_sandbox_backend_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=True, sandbox="bwrap")
+
+    monkeypatch.setattr("zingclaw.tools.shell._IS_WINDOWS", False)
+    monkeypatch.setattr("zingclaw.tools.shell.sandbox_backend_available", lambda _name: False)
+
+    prepared = tool._prepare_command("echo hello")
+
+    assert isinstance(prepared, str)
+    assert "sandbox backend 'bwrap' is not available" in prepared
+
+
+def test_prepare_command_errors_when_sandbox_is_configured_on_windows(tmp_path: Path) -> None:
+    tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=True, sandbox="bwrap")
+
+    prepared = tool._prepare_command("echo hello")
+
+    assert isinstance(prepared, str)
+    assert "sandbox backend 'bwrap' is not supported on Windows" in prepared

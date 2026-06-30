@@ -55,7 +55,26 @@ class SubagentOnlyTool(EnabledTool):
 def test_tool_loader_discovers_builtin_tool_classes() -> None:
     discovered_names = {tool_cls.__name__ for tool_cls in ToolLoader().discover()}
 
-    assert {"ListDirTool", "ReadFileTool", "WriteFileTool", "EditFileTool"} <= discovered_names
+    assert {
+        "ApplyPatchTool",
+        "CancelSubagentTool",
+        "CompleteGoalTool",
+        "CronTool",
+        "ListDirTool",
+        "LongTaskTool",
+        "ListSubagentsTool",
+        "ReadFileTool",
+        "WriteFileTool",
+        "EditFileTool",
+        "ListExecSessionsTool",
+        "FindFilesTool",
+        "GrepTool",
+        "MessageTool",
+        "SpawnTool",
+        "WebFetchTool",
+        "WebSearchTool",
+        "WriteStdinTool",
+    } <= discovered_names
     assert "MCPToolWrapper" not in discovered_names
 
 

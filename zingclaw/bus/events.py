@@ -31,7 +31,15 @@ def _normalize_mapping(value: Any) -> dict[str, Any]:
         return {}
     if not isinstance(value, dict):
         raise TypeError("metadata must be a dict")
-    return deepcopy(value)
+    normalized: dict[str, Any] = {}
+    for key, item in value.items():
+        try:
+            normalized[key] = deepcopy(item)
+        except Exception:
+            # Internal runtime-control payloads may carry live objects such as
+            # Future instances that are intentionally passed by reference.
+            normalized[key] = item
+    return normalized
 
 
 def _normalize_mapping_list(value: Any) -> list[dict[str, Any]]:

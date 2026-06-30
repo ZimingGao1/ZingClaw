@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ZingClaw Control Room</title>
+    <link rel="stylesheet" href="/webui/styles.css" />
+  </head>
+  <body>
+    <div id="transcript-overlay" class="transcript-overlay" hidden></div>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="eyebrow">Local Agent Runtime</p>
+          <h1>ZingClaw</h1>
+          <p class="subtitle">A small command center for sessions, runtime events, and live turns.</p>
+        </div>
+        <div class="sidebar-actions">
+          <button id="new-session-btn" class="button button-primary" type="button">New Chat</button>
+          <button id="refresh-sessions-btn" class="button button-secondary" type="button">Refresh</button>
+        </div>
+        <div class="sessions-panel">
+          <div class="panel-head">
+            <span>Sessions</span>
+            <span id="session-count" class="panel-meta">0</span>
+          </div>
+          <div class="panel-controls">
+            <input
+              id="session-search-input"
+              class="panel-input"
+              type="search"
+              placeholder="Search sessions"
+            />
+            <select id="session-sort-select" class="panel-select">
+              <option value="recent">Recent</option>
+              <option value="title">Title</option>
+              <option value="messages">Messages</option>
+            </select>
+          </div>
+          <div id="sessions-list" class="sessions-list"></div>
+        </div>
+        <div class="mcp-panel">
+          <div class="panel-head">
+            <span>MCP Runtime</span>
+            <button id="refresh-mcp-btn" class="button button-secondary button-small" type="button">Reload</button>
+          </div>
+          <div id="mcp-summary" class="panel-meta">checking servers...</div>
+          <div id="mcp-list" class="mcp-list"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Current Session</p>
+            <h2 id="session-title">Loading...</h2>
+            <p id="session-subtitle" class="topbar-subtitle">Preparing browser workspace...</p>
+          </div>
+          <div class="topbar-actions">
+            <div class="status-pill">
+              <span class="status-dot" id="status-dot"></span>
+              <span id="runtime-status">connecting</span>
+            </div>
+            <button id="reconnect-btn" class="button button-secondary" type="button">Reconnect</button>
+            <button id="rename-session-btn" class="button button-secondary" type="button">Rename</button>
+            <button id="clear-session-btn" class="button button-secondary" type="button">Clear</button>
+            <button id="delete-session-btn" class="button button-danger" type="button">Delete</button>
+          </div>
+        </header>
+
+        <section class="runtime-overview">
+          <article class="stage-card">
+            <div class="panel-head">
+              <span>Turn Stage</span>
+              <span id="stage-badge" class="stage-badge idle">idle</span>
+            </div>
+            <p id="stage-detail" class="stage-detail">Waiting for the next turn.</p>
+          </article>
+          <article class="tool-card">
+            <div class="panel-head">
+              <span>Active Tools</span>
+              <span id="tool-count" class="panel-meta">0</span>
+            </div>
+            <div id="tool-strip" class="tool-strip">
+              <div class="empty-state compact">No active tools right now.</div>
+            </div>
+          </article>
+        </section>
+
+        <section class="workspace">
+          <div class="chat-panel">
+            <div class="panel-head">
+              <span>Transcript</span>
+              <div class="panel-inline-actions">
+                <span id="model-label" class="panel-meta">model: -</span>
+                <button id="transcript-expand-btn" class="button button-secondary button-small" type="button">
+                  Expand
+                </button>
+              </div>
+            </div>
+            <div id="messages" class="messages"></div>
+          </div>
+
+          <div class="events-panel">
+            <div class="panel-head">
+              <span>Runtime Feed</span>
+              <div class="panel-inline-actions">
+                <select id="runtime-filter-select" class="panel-select panel-select-small">
+                  <option value="all">All</option>
+                  <option value="status">Status</option>
+                  <option value="tool">Tools</option>
+                  <option value="error">Errors</option>
+                  <option value="system">System</option>
+                </select>
+                <button id="clear-runtime-btn" class="button button-secondary button-small" type="button">Clear</button>
+              </div>
+            </div>
+            <div id="runtime-feed" class="runtime-feed"></div>
+          </div>
+        </section>
+
+        <form id="composer-form" class="composer">
+          <label class="composer-label" for="composer-input">Ask ZingClaw</label>
+          <textarea
+            id="composer-input"
+            class="composer-input"
+            placeholder="Send a message, inspect a project, or ask the agent to use tools."
+            rows="3"
+          ></textarea>
+          <div class="composer-actions">
+            <p class="composer-hint">Streaming replies and runtime progress appear in real time.</p>
+            <button id="send-btn" class="button button-primary" type="submit">Send</button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <template id="message-template">
+      <article class="message">
+        <div class="message-topline">
+          <div class="message-role"></div>
+          <div class="message-time"></div>
+        </div>
+        <div class="message-body"></div>
+      </article>
+    </template>
+
+    <script type="module" src="/webui/app.js"></script>
+  </body>
+  </html>
