@@ -177,7 +177,9 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert index_response.status == 200
     assert index_response.headers["Cache-Control"].startswith("no-store")
     assert "<title>ZingClaw Control Room</title>" in index_html
-    assert 'id="transcript-overlay"' in index_html
+    assert 'id="transcript-modal"' in index_html
+    assert 'id="transcript-backdrop"' in index_html
+    assert 'id="transcript-modal-mount"' in index_html
     assert 'id="sessions-list"' in index_html
     assert 'id="session-search-input"' in index_html
     assert 'id="session-sort-select"' in index_html
@@ -185,6 +187,7 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert 'id="stage-badge"' in index_html
     assert 'id="tool-strip"' in index_html
     assert 'id="transcript-expand-btn"' in index_html
+    assert 'id="chat-panel"' in index_html
     assert 'id="runtime-filter-select"' in index_html
     assert 'id="clear-runtime-btn"' in index_html
     assert 'id="reconnect-btn"' in index_html
@@ -199,8 +202,9 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert "async function bootstrap()" in asset_js
     assert 'new WebSocket(wsUrl(sessionKey))' in asset_js
     assert "let transcriptExpanded = false;" in asset_js
-    assert 'document.body.classList.toggle("transcript-expanded"' in asset_js
-    assert 'els.transcriptOverlay.hidden = !transcriptExpanded;' in asset_js
+    assert 'document.body.classList.toggle("transcript-expanded", transcriptExpanded);' in asset_js
+    assert 'els.transcriptModalMount.appendChild(els.chatPanel);' in asset_js
+    assert 'transcriptPlaceholder.parentNode.replaceChild(els.chatPanel, transcriptPlaceholder);' in asset_js
     assert 'import { createAppRenderer } from "/webui/renderer.js"' in asset_js
     assert 'import { createUiStore } from "/webui/store.js"' in asset_js
     assert "renderer.render(currentState())" in asset_js
@@ -227,8 +231,9 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert "export function finalizeAssistant(state, text = \"\", streamed = false)" in transcript_js
     assert "overflow-y: auto;" in css_text
     assert "overscroll-behavior: contain;" in css_text
-    assert ".transcript-overlay" in css_text
-    assert "body.transcript-expanded .chat-panel" in css_text
+    assert ".transcript-modal" in css_text
+    assert ".transcript-backdrop" in css_text
+    assert ".transcript-modal .chat-panel" in css_text
 
 
 @pytest.mark.asyncio

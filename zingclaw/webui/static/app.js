@@ -5,6 +5,7 @@ import { createUiStore } from "/webui/store.js";
 const store = createUiStore();
 let reconnectTimer = null;
 let transcriptExpanded = false;
+let transcriptPlaceholder = null;
 
 const els = {
   sessionsList: document.getElementById("sessions-list"),
@@ -21,9 +22,12 @@ const els = {
   toolCount: document.getElementById("tool-count"),
   toolStrip: document.getElementById("tool-strip"),
   messages: document.getElementById("messages"),
+  chatPanel: document.getElementById("chat-panel"),
   runtimeFeed: document.getElementById("runtime-feed"),
   transcriptExpandBtn: document.getElementById("transcript-expand-btn"),
-  transcriptOverlay: document.getElementById("transcript-overlay"),
+  transcriptModal: document.getElementById("transcript-modal"),
+  transcriptBackdrop: document.getElementById("transcript-backdrop"),
+  transcriptModalMount: document.getElementById("transcript-modal-mount"),
   composerForm: document.getElementById("composer-form"),
   composerInput: document.getElementById("composer-input"),
   newSessionBtn: document.getElementById("new-session-btn"),
@@ -59,10 +63,29 @@ function clearReconnectTimer() {
 }
 
 function setTranscriptExpanded(nextValue) {
-  transcriptExpanded = Boolean(nextValue);
+  const nextExpanded = Boolean(nextValue);
+  if (!els.chatPanel || !els.transcriptModal || !els.transcriptModalMount) {
+    transcriptExpanded = false;
+    return;
+  }
+  if (nextExpanded === transcriptExpanded) {
+    return;
+  }
+
+  transcriptExpanded = nextExpanded;
   document.body.classList.toggle("transcript-expanded", transcriptExpanded);
-  if (els.transcriptOverlay) {
-    els.transcriptOverlay.hidden = !transcriptExpanded;
+
+  if (transcriptExpanded) {
+    transcriptPlaceholder = document.createComment("transcript-panel-placeholder");
+    els.chatPanel.parentNode?.insertBefore(transcriptPlaceholder, els.chatPanel);
+    els.transcriptModalMount.appendChild(els.chatPanel);
+    els.transcriptModal.hidden = false;
+  } else {
+    if (transcriptPlaceholder?.parentNode) {
+      transcriptPlaceholder.parentNode.replaceChild(els.chatPanel, transcriptPlaceholder);
+    }
+    transcriptPlaceholder = null;
+    els.transcriptModal.hidden = true;
   }
   if (els.transcriptExpandBtn) {
     els.transcriptExpandBtn.textContent = transcriptExpanded ? "Collapse" : "Expand";
@@ -410,7 +433,7 @@ els.runtimeFilterSelect?.addEventListener("change", (event) => {
 els.transcriptExpandBtn?.addEventListener("click", () => {
   setTranscriptExpanded(!transcriptExpanded);
 });
-els.transcriptOverlay?.addEventListener("click", () => {
+els.transcriptBackdrop?.addEventListener("click", () => {
   setTranscriptExpanded(false);
 });
 els.renameSessionBtn?.addEventListener("click", () => renameCurrentSession());

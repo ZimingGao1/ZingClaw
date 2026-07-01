@@ -7,7 +7,10 @@
     <link rel="stylesheet" href="/webui/styles.css" />
   </head>
   <body>
-    <div id="transcript-overlay" class="transcript-overlay" hidden></div>
+    <div id="transcript-modal" class="transcript-modal" hidden>
+      <div id="transcript-backdrop" class="transcript-backdrop"></div>
+      <div id="transcript-modal-mount" class="transcript-modal-mount"></div>
+    </div>
     <div class="ambient ambient-a"></div>
     <div class="ambient ambient-b"></div>
     <div class="shell">
@@ -90,7 +93,7 @@
         </section>
 
         <section class="workspace">
-          <div class="chat-panel">
+          <div id="chat-panel" class="chat-panel">
             <div class="panel-head">
               <span>Transcript</span>
               <div class="panel-inline-actions">
