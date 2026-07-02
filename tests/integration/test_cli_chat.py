@@ -93,12 +93,18 @@ class FakeLoop:
                 tool_prefix="mcp_demo_",
                 target="python demo_server.py",
                 capability_count=4,
+                tool_names=["mcp_demo_echo", "mcp_demo_shout"],
             )
         ]
 
     async def reload_mcp(self):
         self.reload_calls += 1
         return {"ok": True, "message": "MCP config reloaded without restarting ZingClaw."}
+
+    async def reconnect_mcp(self, server_name: str | None = None):
+        self.reload_calls += 1
+        target = server_name or "all configured servers"
+        return {"ok": True, "message": f"MCP reconnect succeeded for {target}."}
 
     async def run(self) -> None:
         self._running = True
@@ -239,15 +245,17 @@ def test_chat_interactive_supports_mcp_commands(monkeypatch, tmp_path) -> None:
     result = CliRunner().invoke(
         app,
         ["chat", "--session", "demo"],
-        input="/mcp\n/mcp reload\n/exit\n",
+        input="/mcp\n/mcp reload\n/mcp reconnect demo\n/exit\n",
     )
 
     assert result.exit_code == 0
     assert "MCP Status" in result.stdout
     assert "demo" in result.stdout
     assert "mcp_demo_" in result.stdout
+    assert "mcp_demo_echo" in result.stdout
     assert "MCP config reloaded without restarting ZingClaw." in result.stdout
-    assert fake_loop.reload_calls == 1
+    assert "MCP reconnect succeeded for demo." in result.stdout
+    assert fake_loop.reload_calls == 2
     assert fake_loop.closed is True
 
     reset_settings_cache()

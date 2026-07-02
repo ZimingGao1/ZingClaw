@@ -94,16 +94,24 @@
 
         <section class="workspace">
           <div id="chat-panel" class="chat-panel">
-            <div class="panel-head">
-              <span>Transcript</span>
-              <div class="panel-inline-actions">
-                <span id="model-label" class="panel-meta">model: -</span>
+          <div class="panel-head">
+            <span>Transcript</span>
+            <div class="panel-inline-actions">
+              <span id="model-label" class="panel-meta">model: -</span>
                 <button id="transcript-expand-btn" class="button button-secondary button-small" type="button">
                   Expand
+                </button>
+                <button
+                  id="transcript-close-btn"
+                  class="button button-secondary button-small transcript-close-btn"
+                  type="button"
+                >
+                  Close
                 </button>
               </div>
             </div>
             <div id="messages" class="messages"></div>
+            <button id="transcript-jump-btn" class="scroll-anchor" type="button" hidden>Latest</button>
           </div>
 
           <div class="events-panel">
@@ -121,6 +129,9 @@
               </div>
             </div>
             <div id="runtime-feed" class="runtime-feed"></div>
+            <button id="runtime-jump-btn" class="scroll-anchor scroll-anchor-runtime" type="button" hidden>
+              Live
+            </button>
           </div>
         </section>
 
@@ -133,7 +144,7 @@
             rows="3"
           ></textarea>
           <div class="composer-actions">
-            <p class="composer-hint">Streaming replies and runtime progress appear in real time.</p>
+            <p id="composer-hint" class="composer-hint">Streaming replies and runtime progress appear in real time.</p>
             <button id="send-btn" class="button button-primary" type="submit">Send</button>
           </div>
         </form>

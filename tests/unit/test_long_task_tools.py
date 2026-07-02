@@ -125,3 +125,18 @@ async def test_agent_loop_long_task_persists_goal_and_reinjects_it_next_turn(tmp
         second_request_user_message
     )
     assert "Summary: Provider registry" in second_request_user_message
+
+
+@pytest.mark.asyncio
+async def test_complete_goal_reports_when_no_active_goal(tmp_path: Path) -> None:
+    sessions = SessionManager(tmp_path / "sessions")
+    sessions.save(sessions.get_or_create("cli:demo"))
+    tool = CompleteGoalTool(sessions=sessions)
+    token = tool.set_context(RequestContext(session_key="cli:demo"))
+
+    try:
+        result = await tool.execute("nothing to do")
+    finally:
+        tool.reset_context(token)
+
+    assert result == "No active goal to complete."

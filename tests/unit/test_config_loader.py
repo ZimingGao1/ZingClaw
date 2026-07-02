@@ -33,6 +33,7 @@ def test_load_settings_reads_nested_config_json_and_syncs_flat_fields(tmp_path: 
                     "maxIterations": 33,
                     "maxToolResultChars": 9001,
                     "providerRetryMode": "persistent",
+                    "enabledSkills": ["memory", "cron"],
                     "disabledSkills": ["memory", "github"],
                 },
                 "security": {"execSandbox": "bwrap"},
@@ -55,9 +56,29 @@ def test_load_settings_reads_nested_config_json_and_syncs_flat_fields(tmp_path: 
     assert settings.max_iterations == 33
     assert settings.max_tool_result_chars == 9001
     assert settings.agent.provider_retry_mode == "persistent"
+    assert settings.agent.enabled_skills == ["memory", "cron"]
     assert settings.agent.disabled_skills == ["memory", "github"]
+    assert settings.agent.session_ttl_minutes == 0
     assert settings.security.exec_sandbox == "bwrap"
     assert settings.memory.max_history_entries == 250
+
+
+def test_load_settings_accepts_idle_compact_after_minutes_alias(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "agent": {
+                    "idleCompactAfterMinutes": 25,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    settings = Settings(_env_file=None, config_path=config_path)
+
+    assert settings.agent.session_ttl_minutes == 25
 
 
 def test_env_vars_override_nested_json_config_values(tmp_path: Path, monkeypatch) -> None:

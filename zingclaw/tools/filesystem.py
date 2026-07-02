@@ -124,7 +124,12 @@ class _FsTool(Tool):
     {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Directory path to list", "default": "."},
+            "path": {
+                "type": "string",
+                "description": "Directory path to list",
+                "default": ".",
+                "minLength": 1,
+            },
             "recursive": {
                 "type": "boolean",
                 "description": "Recursively list nested files and directories",
@@ -134,6 +139,7 @@ class _FsTool(Tool):
                 "type": "integer",
                 "description": "Maximum entries to return",
                 "minimum": 1,
+                "maximum": 2000,
                 "default": 200,
             },
         },
@@ -181,11 +187,12 @@ class ListDirTool(_FsTool):
     ) -> str:
         del kwargs
         try:
+            path = str(path or ".").strip() or "."
             directory = self._resolve_read(path)
             if not directory.exists():
-                return f"Error: Directory not found: {path}"
+                return self.error(f"Directory not found: {path}")
             if not directory.is_dir():
-                return f"Error: Not a directory: {path}"
+                return self.error(f"Not a directory: {path}")
 
             cap = max_entries or self._DEFAULT_MAX_ENTRIES
             items: list[str] = []
@@ -213,23 +220,23 @@ class ListDirTool(_FsTool):
                         items.append(f"{item.name}/" if item.is_dir() else item.name)
 
             if total == 0:
-                return f"Directory is empty: {path}"
+                return self.ok(f"Directory is empty: {path}")
 
             result = "\n".join(items)
             if total > cap:
                 result += f"\n\n[truncated: showing first {cap} of {total} entries]"
             return self._truncate_text(result)
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except Exception as exc:
-            return f"Error listing directory: {exc}"
+            return self.error(f"listing directory failed: {exc}")
 
 
 @tool_parameters(
     {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "File path to read"},
+            "path": {"type": "string", "description": "File path to read", "minLength": 1},
             "start_line": {
                 "type": "integer",
                 "description": "1-based starting line number",
@@ -276,24 +283,27 @@ class ReadFileTool(_FsTool):
         del kwargs
         try:
             if not path:
-                raise ValueError("Unknown path")
+                return self.error("path is required")
+            clean_path = str(path).strip()
+            if not clean_path:
+                return self.error("path is required")
             if start_line is not None and start_line < 1:
-                return "Error: start_line must be >= 1"
+                return self.error("start_line must be >= 1")
             if end_line is not None and end_line < 1:
-                return "Error: end_line must be >= 1"
+                return self.error("end_line must be >= 1")
             if start_line is not None and end_line is not None and end_line < start_line:
-                return "Error: end_line must be >= start_line"
+                return self.error("end_line must be >= start_line")
 
-            file_path = self._resolve_read(path)
+            file_path = self._resolve_read(clean_path)
             if not file_path.exists():
-                return f"Error: File not found: {path}"
+                return self.error(f"File not found: {clean_path}")
             if not file_path.is_file():
-                return f"Error: Not a file: {path}"
+                return self.error(f"Not a file: {clean_path}")
 
             try:
                 content = file_path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
-                return f"Error: File is not valid UTF-8 text: {path}"
+                return self.error(f"File is not valid UTF-8 text: {clean_path}")
 
             if content == "":
                 return f"Empty file: {path}"
@@ -305,7 +315,7 @@ class ReadFileTool(_FsTool):
             total_lines = len(lines)
             start = start_line or 1
             if start > total_lines:
-                return f"Error: start_line {start} is beyond end of file ({total_lines} lines)"
+                return self.error(f"start_line {start} is beyond end of file ({total_lines} lines)")
             end = min(end_line or total_lines, total_lines)
 
             selected = lines[start - 1 : end]
@@ -345,16 +355,16 @@ class ReadFileTool(_FsTool):
 
             return body + footer
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except Exception as exc:
-            return f"Error reading file: {exc}"
+            return self.error(f"reading file failed: {exc}")
 
 
 @tool_parameters(
     {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "File path to write"},
+            "path": {"type": "string", "description": "File path to write", "minLength": 1},
             "content": {"type": "string", "description": "UTF-8 text content to write"},
         },
         "required": ["path", "content"],
@@ -380,25 +390,28 @@ class WriteFileTool(_FsTool):
         del kwargs
         try:
             if not path:
-                raise ValueError("Unknown path")
+                return self.error("path is required")
+            clean_path = str(path).strip()
+            if not clean_path:
+                return self.error("path is required")
             if content is None:
-                raise ValueError("Unknown content")
+                return self.error("content is required")
 
-            file_path = self._resolve_write(path)
+            file_path = self._resolve_write(clean_path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(content, encoding="utf-8")
-            return f"Successfully wrote {len(content)} characters to {file_path}"
+            return self.ok(f"Successfully wrote {len(content)} characters to {file_path}")
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except Exception as exc:
-            return f"Error writing file: {exc}"
+            return self.error(f"writing file failed: {exc}")
 
 
 @tool_parameters(
     {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "File path to edit"},
+            "path": {"type": "string", "description": "File path to edit", "minLength": 1},
             "old_text": {"type": "string", "description": "Existing text to replace"},
             "new_text": {"type": "string", "description": "Replacement text"},
             "replace_all": {
@@ -458,42 +471,45 @@ class EditFileTool(_FsTool):
         del kwargs
         try:
             if not path:
-                raise ValueError("Unknown path")
+                return self.error("path is required")
+            clean_path = str(path).strip()
+            if not clean_path:
+                return self.error("path is required")
             if old_text is None:
-                raise ValueError("Unknown old_text")
+                return self.error("old_text is required")
             if new_text is None:
-                raise ValueError("Unknown new_text")
+                return self.error("new_text is required")
             if occurrence is not None and occurrence < 1:
-                return "Error: occurrence must be >= 1."
+                return self.error("occurrence must be >= 1.")
             if line_hint is not None and line_hint < 1:
-                return "Error: line_hint must be >= 1."
+                return self.error("line_hint must be >= 1.")
             if expected_replacements is not None and expected_replacements < 1:
-                return "Error: expected_replacements must be >= 1."
+                return self.error("expected_replacements must be >= 1.")
             if replace_all and occurrence is not None:
-                return "Error: occurrence cannot be used with replace_all=true."
+                return self.error("occurrence cannot be used with replace_all=true.")
             if replace_all and line_hint is not None:
-                return "Error: line_hint cannot be used with replace_all=true."
+                return self.error("line_hint cannot be used with replace_all=true.")
             if occurrence is not None and line_hint is not None:
-                return "Error: line_hint cannot be used with occurrence."
+                return self.error("line_hint cannot be used with occurrence.")
 
-            file_path = self._resolve_write(path)
+            file_path = self._resolve_write(clean_path)
 
             if not file_path.exists():
                 if old_text == "":
                     file_path.parent.mkdir(parents=True, exist_ok=True)
                     file_path.write_text(new_text, encoding="utf-8")
-                    return f"Successfully created {file_path}"
-                return f"Error: File not found: {path}"
+                    return self.ok(f"Successfully created {file_path}")
+                return self.error(f"File not found: {clean_path}")
             if not file_path.is_file():
-                return f"Error: Not a file: {path}"
+                return self.error(f"Not a file: {clean_path}")
 
             try:
                 file_size = file_path.stat().st_size
             except OSError:
                 file_size = 0
             if file_size > self._MAX_EDIT_FILE_SIZE:
-                return (
-                    f"Error: File too large to edit ({file_size} bytes). "
+                return self.error(
+                    f"File too large to edit ({file_size} bytes). "
                     f"Maximum is {self._MAX_EDIT_FILE_SIZE} bytes."
                 )
 
@@ -502,34 +518,34 @@ class EditFileTool(_FsTool):
             try:
                 content = raw.decode("utf-8").replace("\r\n", "\n")
             except UnicodeDecodeError:
-                return f"Error: File is not valid UTF-8 text: {path}"
+                return self.error(f"File is not valid UTF-8 text: {clean_path}")
 
             if old_text == "":
                 if content.strip():
-                    return f"Error: Cannot create file - {path} already exists and is not empty."
+                    return self.error(f"Cannot create file - {clean_path} already exists and is not empty.")
                 file_path.write_text(new_text, encoding="utf-8")
-                return f"Successfully edited {file_path}"
+                return self.ok(f"Successfully edited {file_path}")
 
             normalized_old = old_text.replace("\r\n", "\n")
             normalized_new = new_text.replace("\r\n", "\n")
             matches = _find_exact_matches(content, normalized_old)
             if not matches:
-                return f"Error: old_text not found in {path}."
+                return self.error(f"old_text not found in {clean_path}.")
 
             count = len(matches)
             if count > 1 and not replace_all:
                 if occurrence is not None:
                     if occurrence > count:
-                        return (
-                            f"Error: occurrence {occurrence} is out of range; "
+                        return self.error(
+                            f"occurrence {occurrence} is out of range; "
                             f"old_text appears {count} times."
                         )
                 elif line_hint is not None:
                     nearest = min(matches, key=lambda match: abs(match.line - line_hint))
                     distance = abs(nearest.line - line_hint)
                     if sum(1 for match in matches if abs(match.line - line_hint) == distance) > 1:
-                        return (
-                            f"Error: line_hint {line_hint} is ambiguous; "
+                        return self.error(
+                            f"line_hint {line_hint} is ambiguous; "
                             f"old_text appears {count} times."
                         )
                 else:
@@ -541,8 +557,8 @@ class EditFileTool(_FsTool):
                         "Provide more context, set occurrence to choose one match, or set replace_all=true."
                     )
             elif occurrence is not None and occurrence > count:
-                return (
-                    f"Error: occurrence {occurrence} is out of range; "
+                return self.error(
+                    f"occurrence {occurrence} is out of range; "
                     f"old_text appears {count} time."
                 )
 
@@ -554,8 +570,8 @@ class EditFileTool(_FsTool):
                 selected = [matches[occurrence - 1 if occurrence else 0]]
 
             if expected_replacements is not None and len(selected) != expected_replacements:
-                return (
-                    f"Error: expected {expected_replacements} replacements but would make {len(selected)}."
+                return self.error(
+                    f"expected {expected_replacements} replacements but would make {len(selected)}."
                 )
 
             new_content = content
@@ -569,8 +585,8 @@ class EditFileTool(_FsTool):
                 new_content = new_content.replace("\n", "\r\n")
 
             file_path.write_bytes(new_content.encode("utf-8"))
-            return f"Successfully edited {file_path}"
+            return self.ok(f"Successfully edited {file_path}")
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except Exception as exc:
-            return f"Error editing file: {exc}"
+            return self.error(f"editing file failed: {exc}")

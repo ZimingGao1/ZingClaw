@@ -100,6 +100,7 @@ def test_prepare_call_rejects_non_object_params() -> None:
     assert params == ["TODO"]
     assert error is not None
     assert "parameters must be a JSON object" in error
+    assert "This tool takes no parameters." in error
 
 
 @pytest.mark.asyncio
@@ -140,5 +141,5 @@ async def test_execute_returns_actionable_validation_error() -> None:
 
     assert "Invalid parameters" in result
     assert "count must be >= 1" in result
+    assert "Accepted keys: count." in result
     assert "Analyze the error above" in result
-

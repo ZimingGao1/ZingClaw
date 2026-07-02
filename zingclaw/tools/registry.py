@@ -121,13 +121,21 @@ class ToolRegistry:
             return tool, params, (
                 f"Error: Tool '{name}' parameters must be a JSON object, got "
                 f"{type(params).__name__}. Use named parameters like "
-                'tool_name(param1="value1", param2="value2") matching the tool schema.'
+                'tool_name(param1="value1", param2="value2") matching the tool schema. '
+                + tool.format_parameter_hint()
             )
 
         cast_params = tool.cast_params(params)
         errors = tool.validate_params(cast_params)
         if errors:
-            return tool, cast_params, f"Error: Invalid parameters for tool '{name}': " + "; ".join(errors)
+            return (
+                tool,
+                cast_params,
+                f"Error: Invalid parameters for tool '{name}': "
+                + "; ".join(errors)
+                + " "
+                + tool.format_parameter_hint(),
+            )
 
         return tool, cast_params, None
 

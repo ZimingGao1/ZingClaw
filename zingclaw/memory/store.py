@@ -1,9 +1,12 @@
-"""Minimal memory subsystem for ZingClaw."""
+"""Long-term memory store and history consolidation for ZingClaw."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
+import threading
 from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime
@@ -62,7 +65,11 @@ class MemoryStore:
         self.max_history_entries = max(0, int(max_history_entries))
         self.memory_file = self.memory_dir / "MEMORY.md"
         self.history_file = self.memory_dir / "history.jsonl"
+        self.history_markdown_file = self.memory_dir / "HISTORY.md"
         self.cursor_file = self.memory_dir / ".cursor"
+        self.dream_cursor_file = self.memory_dir / ".dream_cursor"
+        self._append_lock = threading.Lock()
+        self._maybe_sync_history_markdown()
 
     @staticmethod
     def _read_file(path: Path) -> str:
@@ -93,21 +100,89 @@ class MemoryStore:
         long_term = self.read_memory().strip()
         return f"## Long-term Memory\n{long_term}" if long_term else ""
 
-    def _read_cursor_counter(self) -> int:
+    @staticmethod
+    def _valid_cursor(value: Any) -> int | None:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
+    def _read_entries(self) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        with suppress(FileNotFoundError):
+            with self.history_file.open("r", encoding="utf-8") as handle:
+                for raw_line in handle:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    with suppress(json.JSONDecodeError):
+                        item = json.loads(line)
+                        if isinstance(item, dict):
+                            entries.append(item)
+        return entries
+
+    @classmethod
+    def _valid_history_payload(cls, entry: dict[str, Any]) -> bool:
+        if cls._valid_cursor(entry.get("cursor")) is None:
+            return False
+        if not isinstance(entry.get("timestamp"), str):
+            return False
+        if not isinstance(entry.get("content"), str):
+            return False
+        session_key = entry.get("session_key")
+        return session_key is None or isinstance(session_key, str)
+
+    def _iter_valid_entries(self) -> list[dict[str, Any]]:
+        return [entry for entry in self._read_entries() if self._valid_history_payload(entry)]
+
+    def _read_last_entry(self) -> dict[str, Any] | None:
+        try:
+            with self.history_file.open("rb") as handle:
+                handle.seek(0, 2)
+                size = handle.tell()
+                if size <= 0:
+                    return None
+                read_size = min(size, 4096)
+                handle.seek(size - read_size)
+                lines = [line for line in handle.read().decode("utf-8").splitlines() if line.strip()]
+                if not lines:
+                    return None
+                entry = json.loads(lines[-1])
+                return entry if isinstance(entry, dict) else None
+        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return None
+
+    def _read_cursor_counter(self) -> int | None:
         with suppress(FileNotFoundError, ValueError):
             value = int(self.cursor_file.read_text(encoding="utf-8").strip())
             if value >= 0:
                 return value
-        return 0
+        return None
 
     def _next_cursor(self) -> int:
         counter = self._read_cursor_counter()
-        last = self._read_last_entry()
-        if isinstance(last, dict):
-            raw = last.get("cursor")
-            if isinstance(raw, int) and not isinstance(raw, bool):
-                counter = max(counter, raw)
-        return counter + 1
+        last = self._read_last_entry() or {}
+        last_cursor = self._valid_cursor(last.get("cursor"))
+        max_history_cursor = max(
+            (self._valid_cursor(entry.get("cursor")) or 0 for entry in self._iter_valid_entries()),
+            default=0,
+        )
+        if counter is not None and last_cursor is not None:
+            return max(counter, last_cursor) + 1
+        if counter is not None:
+            return max(counter, max_history_cursor) + 1
+        if last_cursor is not None:
+            return last_cursor + 1
+        return max_history_cursor + 1
+
+    def get_last_dream_cursor(self) -> int:
+        with suppress(FileNotFoundError, OSError, ValueError):
+            value = int(self.dream_cursor_file.read_text(encoding="utf-8").strip())
+            if value >= 0:
+                return value
+        return 0
+
+    def set_last_dream_cursor(self, cursor: int) -> None:
+        self.dream_cursor_file.write_text(str(max(0, int(cursor))), encoding="utf-8")
 
     def append_history(
         self,
@@ -121,18 +196,20 @@ class MemoryStore:
         raw = entry.rstrip()
         if len(raw) > limit:
             raw = _truncate_text(raw, limit)
-        cursor = self._next_cursor()
-        record: dict[str, Any] = {
-            "cursor": cursor,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "content": raw,
-        }
-        if session_key:
-            record["session_key"] = session_key
-        with self.history_file.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-        self.cursor_file.write_text(str(cursor), encoding="utf-8")
-        self.compact_history()
+
+        with self._append_lock:
+            cursor = self._next_cursor()
+            record: dict[str, Any] = {
+                "cursor": cursor,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "content": raw,
+            }
+            if session_key:
+                record["session_key"] = session_key
+            with self.history_file.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            self.cursor_file.write_text(str(cursor), encoding="utf-8")
+            self._sync_history_markdown_locked()
         return cursor
 
     def raw_archive(self, messages: list[dict[str, Any]], *, session_key: str | None = None) -> int:
@@ -143,33 +220,33 @@ class MemoryStore:
             session_key=session_key,
         )
 
-    def read_history_entries(self, *, session_key: str | None = None) -> list[dict[str, Any]]:
-        entries: list[dict[str, Any]] = []
-        with suppress(FileNotFoundError):
-            with self.history_file.open("r", encoding="utf-8") as handle:
-                for raw_line in handle:
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    try:
-                        item = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if not isinstance(item, dict):
-                        continue
-                    if session_key and item.get("session_key") != session_key:
-                        continue
-                    entries.append(item)
+    def read_unprocessed_history(self, *, since_cursor: int = 0) -> list[dict[str, Any]]:
+        return [
+            entry
+            for entry in self._iter_valid_entries()
+            if (self._valid_cursor(entry.get("cursor")) or 0) > since_cursor
+        ]
+
+    def read_history_entries(
+        self,
+        *,
+        session_key: str | None = None,
+        since_cursor: int | None = None,
+    ) -> list[dict[str, Any]]:
+        entries = self.read_unprocessed_history(since_cursor=since_cursor or 0)
+        if session_key:
+            entries = [entry for entry in entries if entry.get("session_key") == session_key]
         return entries
 
     def read_recent_history_for_prompt(
         self,
         *,
         session_key: str | None = None,
+        since_cursor: int | None = None,
         limit: int = _RECENT_HISTORY_PROMPT_ENTRIES,
         max_chars: int = _RECENT_HISTORY_PROMPT_CHARS,
     ) -> list[dict[str, Any]]:
-        entries = self.read_history_entries(session_key=session_key)
+        entries = self.read_history_entries(session_key=session_key, since_cursor=since_cursor)
         if limit > 0:
             entries = entries[-limit:]
         if max_chars > 0 and entries:
@@ -189,11 +266,13 @@ class MemoryStore:
         self,
         *,
         session_key: str | None = None,
+        since_cursor: int | None = None,
         limit: int = _RECENT_HISTORY_PROMPT_ENTRIES,
         max_chars: int = _RECENT_HISTORY_PROMPT_CHARS,
     ) -> str:
         entries = self.read_recent_history_for_prompt(
             session_key=session_key,
+            since_cursor=since_cursor,
             limit=limit,
             max_chars=max_chars,
         )
@@ -209,37 +288,63 @@ class MemoryStore:
             lines.append(prefix + content)
         return "\n".join(lines) if len(lines) > 1 else ""
 
-    def compact_history(self) -> None:
-        if self.max_history_entries <= 0:
-            return
-        entries = self.read_history_entries()
-        if len(entries) <= self.max_history_entries:
-            return
-        kept = entries[-self.max_history_entries :]
+    def _write_entries(self, entries: list[dict[str, Any]]) -> None:
         tmp_path = self.history_file.with_suffix(".jsonl.tmp")
         try:
             with tmp_path.open("w", encoding="utf-8") as handle:
-                for entry in kept:
+                for entry in entries:
                     handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
-            tmp_path.replace(self.history_file)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_path, self.history_file)
         finally:
             tmp_path.unlink(missing_ok=True)
 
-    def _read_last_entry(self) -> dict[str, Any] | None:
-        try:
-            with self.history_file.open("rb") as handle:
-                handle.seek(0, 2)
-                size = handle.tell()
-                if size <= 0:
-                    return None
-                read_size = min(size, 4096)
-                handle.seek(size - read_size)
-                lines = [line for line in handle.read().decode("utf-8").splitlines() if line.strip()]
-                if not lines:
-                    return None
-                return json.loads(lines[-1])
-        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError):
-            return None
+    def _render_history_markdown(self, entries: list[dict[str, Any]]) -> str:
+        if not entries:
+            return ""
+
+        blocks: list[str] = []
+        for entry in entries:
+            timestamp = str(entry.get("timestamp") or "").strip() or "unknown time"
+            content = str(entry.get("content") or "").strip()
+            session_key = str(entry.get("session_key") or "").strip()
+            lines = [f"### {timestamp}"]
+            if session_key:
+                lines.append(f"Session: `{session_key}`")
+            if content:
+                lines.extend(["", content])
+            blocks.append("\n".join(lines).rstrip())
+        return "\n\n---\n\n".join(blocks) + "\n"
+
+    def _write_history_markdown(self, entries: list[dict[str, Any]]) -> None:
+        self.history_markdown_file.write_text(
+            self._render_history_markdown(entries),
+            encoding="utf-8",
+        )
+
+    def _sync_history_markdown_locked(self) -> None:
+        entries = self._iter_valid_entries()
+        if self.max_history_entries > 0 and len(entries) > self.max_history_entries:
+            entries = entries[-self.max_history_entries :]
+            self._write_entries(entries)
+        self._write_history_markdown(entries)
+
+    def _maybe_sync_history_markdown(self) -> None:
+        if not self.history_file.exists():
+            return
+        if self.history_markdown_file.exists():
+            try:
+                if self.history_markdown_file.stat().st_mtime >= self.history_file.stat().st_mtime:
+                    return
+            except OSError:
+                pass
+        with self._append_lock:
+            self._sync_history_markdown_locked()
+
+    def compact_history(self) -> None:
+        with self._append_lock:
+            self._sync_history_markdown_locked()
 
     @staticmethod
     def format_messages(messages: list[dict[str, Any]]) -> str:
@@ -300,6 +405,14 @@ class Consolidator:
             if prompt_token_budget is not None
             else max(_MIN_PROMPT_TOKEN_BUDGET, provider.generation.max_tokens * 3)
         )
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def get_lock(self, session_key: str) -> asyncio.Lock:
+        lock = self._locks.get(session_key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[session_key] = lock
+        return lock
 
     def _estimate_session_tokens(self, session: Session) -> int:
         history = session.get_history(
@@ -333,10 +446,18 @@ class Consolidator:
                 return start + rel_idx
         return None
 
-    async def archive(self, messages: list[dict[str, Any]], *, session_key: str | None = None) -> str | None:
+    async def archive(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        session_key: str | None = None,
+        summary_messages: list[dict[str, Any]] | None = None,
+    ) -> str | None:
         if not messages:
             return None
-        formatted = MemoryStore.format_messages(messages)
+
+        messages_to_summarize = summary_messages if summary_messages is not None else messages
+        formatted = MemoryStore.format_messages(messages_to_summarize)
         formatted = _truncate_text(formatted, _RAW_ARCHIVE_MAX_CHARS)
         try:
             response = await self.provider.chat_with_retry(
@@ -374,25 +495,77 @@ class Consolidator:
             return None
 
     async def maybe_consolidate(self, session: Session) -> str | None:
-        if not self._should_consolidate(session):
-            return None
+        lock = self.get_lock(session.key)
+        async with lock:
+            session = self.sessions.get_or_create(session.key)
+            if not self._should_consolidate(session):
+                return None
 
-        boundary = self._pick_boundary(session)
-        if boundary is None or boundary <= session.last_consolidated:
-            return None
+            boundary = self._pick_boundary(session)
+            if boundary is None or boundary <= session.last_consolidated:
+                return None
 
-        chunk = deepcopy(session.messages[session.last_consolidated : boundary])
-        if not chunk:
-            return None
+            chunk = deepcopy(session.messages[session.last_consolidated : boundary])
+            if not chunk:
+                return None
 
-        summary = await self.archive(chunk, session_key=session.key)
-        session.last_consolidated = boundary
-        if summary is not None:
-            session.mark_compacted(summary, trigger="auto")
-        else:
-            session.mark_compacted(
-                "Older turns were archived to memory/history.jsonl after summarization fell back to raw archival.",
-                trigger="raw_archive",
+            summary = await self.archive(chunk, session_key=session.key)
+            session.last_consolidated = boundary
+            if summary is not None:
+                session.mark_compacted(summary, trigger="auto")
+            else:
+                session.mark_compacted(
+                    "Older turns were archived to memory/HISTORY.md after summarization fell back to raw archival.",
+                    trigger="raw_archive",
+                )
+            self.sessions.save(session)
+            return summary
+
+    async def compact_idle_session(
+        self,
+        session_key: str,
+        *,
+        max_suffix: int = 8,
+    ) -> str | None:
+        """Archive the old prefix of a session, keeping only a recent legal suffix."""
+        lock = self.get_lock(session_key)
+        async with lock:
+            session = self.sessions.get_or_create(session_key)
+            messages_to_summarize = list(session.messages[session.last_consolidated :])
+            if not messages_to_summarize:
+                return ""
+
+            probe = Session(
+                key=session.key,
+                messages=messages_to_summarize.copy(),
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+                metadata={},
+                last_consolidated=0,
             )
-        self.sessions.save(session)
-        return summary
+            dropped, already_consolidated = probe.retain_recent_legal_suffix(
+                max_suffix,
+                extend_to_user=True,
+            )
+            messages_to_keep = probe.messages
+            messages_to_remove = dropped[already_consolidated:]
+
+            if not messages_to_remove:
+                return ""
+
+            summary = await self.archive(
+                messages_to_remove,
+                session_key=session_key,
+                summary_messages=messages_to_summarize,
+            )
+            if summary is not None:
+                session.mark_compacted(summary, trigger="idle")
+            else:
+                session.mark_compacted(
+                    "Older turns were archived to memory/HISTORY.md after idle compaction fell back to raw archival.",
+                    trigger="idle_raw_archive",
+                )
+            session.messages = messages_to_keep
+            session.last_consolidated = 0
+            self.sessions.save(session)
+            return summary

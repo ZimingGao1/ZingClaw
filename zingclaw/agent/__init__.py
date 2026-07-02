@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 __all__ = [
+    "AutoCompact",
     "AgentContext",
     "AgentLoop",
     "AgentLoopResult",
@@ -19,6 +20,10 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
+    if name == "AutoCompact":
+        from zingclaw.agent.autocompact import AutoCompact
+
+        return AutoCompact
     if name in {"AgentContext", "ContextBuilder"}:
         from zingclaw.agent.context import AgentContext, ContextBuilder
 

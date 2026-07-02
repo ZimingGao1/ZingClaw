@@ -97,6 +97,7 @@ def _format_summary(summary: _PatchSummary) -> str:
                                 "Path to the file to edit. Relative paths resolve against the "
                                 "workspace and still obey the workspace boundary policy."
                             ),
+                            "minLength": 1,
                         },
                         "action": {
                             "type": "string",
@@ -272,9 +273,9 @@ class ApplyPatchTool(_FsTool):
                 raise _PatchError(f"unknown action: {action}")
 
             if dry_run:
-                return "Patch dry-run succeeded:\n" + "\n".join(
+                return self.ok("Patch dry-run succeeded:\n" + "\n".join(
                     _format_summary(summary) for summary in summaries
-                )
+                ))
 
             backups: dict[Path, bytes | None] = {
                 path: path.read_bytes() if path.exists() else None for path in writes
@@ -292,10 +293,10 @@ class ApplyPatchTool(_FsTool):
                         path.write_bytes(data)
                 raise
 
-            return "Patch applied:\n" + "\n".join(_format_summary(summary) for summary in summaries)
+            return self.ok("Patch applied:\n" + "\n".join(_format_summary(summary) for summary in summaries))
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except _PatchError as exc:
-            return f"Error applying patch: {exc}"
+            return self.error(f"applying patch failed: {exc}")
         except Exception as exc:
-            return f"Error applying patch: {exc}"
+            return self.error(f"applying patch failed: {exc}")

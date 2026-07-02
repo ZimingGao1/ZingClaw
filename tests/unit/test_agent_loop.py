@@ -281,6 +281,67 @@ async def test_agent_loop_runs_memory_consolidation_after_turn(tmp_path) -> None
 
 
 @pytest.mark.asyncio
+async def test_agent_loop_continues_active_goal_across_max_iteration_boundary(tmp_path) -> None:
+    settings = Settings(_env_file=None, home_dir=tmp_path)
+    settings.agent.max_iterations = 1
+    provider = RecordingProvider(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCallRequest(id="call_1", name="echo_tool", arguments={"value": "ping"})],
+                finish_reason="tool_calls",
+            ),
+            LLMResponse(content="goal finished", finish_reason="stop"),
+        ]
+    )
+    registry = ToolRegistry()
+    registry.register(EchoTool())
+    loop = AgentLoop(settings=settings, provider=provider, tools=registry)
+    session = loop.sessions.get_or_create("cli:goal")
+    session.metadata["goal_state"] = {
+        "status": "active",
+        "objective": "Finish the migration.",
+        "ui_summary": "migration",
+    }
+    loop.sessions.save(session)
+
+    bus = MessageBus()
+    loop.bind_bus(bus)
+    task = asyncio.create_task(loop.run())
+
+    try:
+        await bus.publish_inbound(
+            InboundMessage(
+                channel="cli",
+                chat_id="goal",
+                session_key="cli:goal",
+                sender_id="user-1",
+                text="keep going",
+            )
+        )
+
+        outbound = await asyncio.wait_for(bus.consume_outbound(), timeout=2.0)
+        await asyncio.sleep(0.05)
+    finally:
+        loop.stop()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    refreshed = loop.sessions.get_or_create("cli:goal")
+
+    assert outbound.text == "goal finished"
+    assert outbound.final is True
+    assert outbound.metadata["stop_reason"] == "completed"
+    assert [message["role"] for message in refreshed.messages] == ["user", "assistant", "tool", "assistant"]
+    assert refreshed.messages[0]["content"] == "keep going"
+    assert refreshed.messages[1]["tool_calls"][0]["function"]["name"] == "echo_tool"
+    assert refreshed.messages[2]["tool_call_id"] == "call_1"
+    assert refreshed.messages[3]["content"] == "goal finished"
+    assert len(provider.requests) == 2
+    assert all("Continue the active sustained goal" not in str(message.get("content")) for message in refreshed.messages)
+
+
+@pytest.mark.asyncio
 async def test_agent_loop_run_handles_mcp_reload_runtime_control_via_bus(tmp_path, monkeypatch) -> None:
     provider = RecordingProvider([])
     loop = _make_loop(tmp_path, provider, ToolRegistry())

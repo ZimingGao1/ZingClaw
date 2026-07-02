@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from typing import Any, Sequence
 
+from zingclaw.agent.autocompact import AutoCompact
 from zingclaw.agent.context import AgentContext, ContextBuilder
 from zingclaw.agent.runner import AgentRunner, AgentRunResult, AgentRunSpec
 from zingclaw.agent.subagent import SubagentManager
@@ -28,7 +31,20 @@ from zingclaw.config import Settings
 from zingclaw.cron import CronService
 from zingclaw.memory import Consolidator, MemoryStore
 from zingclaw.providers import LLMProvider, TextDeltaCallback, create_provider
-from zingclaw.session import Session, SessionManager, should_persist_user_message
+from zingclaw.session import (
+    GOAL_CONTINUATION_SENDER,
+    Session,
+    SessionManager,
+    build_goal_continuation_prompt,
+    build_internal_continuation_metadata,
+    clear_internal_continuation_state,
+    goal_continuation_available,
+    increment_goal_continuation_round,
+    internal_continuation_run_started_at,
+    mark_internal_continuation_pending,
+    should_persist_user_message,
+    should_stream_budget_response,
+)
 from zingclaw.tools import (
     INBOUND_META_RUNTIME_CONTROL,
     RUNTIME_CONTROL_ACK,
@@ -63,6 +79,7 @@ class AgentLoopResult:
     messages: list[dict[str, Any]]
     tools_used: list[str] = field(default_factory=list)
     usage: dict[str, int] = field(default_factory=dict)
+    suppress_outbound: bool = False
 
 
 class AgentLoop:
@@ -136,10 +153,22 @@ class AgentLoop:
                 model=settings.model_name,
                 sessions=self.sessions,
                 consolidation_threshold=settings.memory.consolidation_threshold,
+                recent_keep_messages=settings.memory.recent_keep_messages,
+                prompt_token_budget=settings.memory.prompt_token_budget,
             )
             if settings.memory.enabled
             else None
         )
+        self.auto_compact = (
+            AutoCompact(
+                self.sessions,
+                self.consolidator,
+                session_ttl_minutes=settings.agent.session_ttl_minutes,
+            )
+            if self.consolidator is not None
+            else None
+        )
+        self._background_tasks: set[asyncio.Task[Any]] = set()
         self._running = False
 
     @classmethod
@@ -238,13 +267,14 @@ class AgentLoop:
             **inbound.to_loop_kwargs(),
         )
 
-        await self.bus.publish_outbound(
-            self._build_outbound_message(
-                inbound,
-                result,
-                streamed=streamed,
+        if not result.suppress_outbound:
+            await self.bus.publish_outbound(
+                self._build_outbound_message(
+                    inbound,
+                    result,
+                    streamed=streamed,
+                )
             )
-        )
         return result
 
     async def _handle_runtime_control(self, inbound: InboundMessage) -> bool:
@@ -317,7 +347,8 @@ class AgentLoop:
         """Build a turn from prior history, persist the inbound, then run/save the result."""
         meta = dict(metadata or {})
         resolved_chat_id = chat_id or session_key
-        turn_started_at = time.perf_counter()
+        continuation_started_at = internal_continuation_run_started_at(meta)
+        turn_started_at = continuation_started_at or time.perf_counter()
         runtime_context = build_runtime_event_context(
             channel=channel,
             chat_id=resolved_chat_id,
@@ -330,6 +361,13 @@ class AgentLoop:
         )
 
         session = self.sessions.get_or_create(session_key)
+        if self.auto_compact is not None:
+            self.auto_compact.check_expired(
+                self._schedule_background,
+                active_session_keys={session_key},
+            )
+            session, _ = await self.auto_compact.prepare_session(session, session_key)
+        clear_internal_continuation_state(session.metadata)
         persisted_mcp = session_extra(meta)
         if persisted_mcp:
             session.metadata.update(persisted_mcp)
@@ -386,9 +424,28 @@ class AgentLoop:
             )
         )
 
+        continuation_scheduled = await self._maybe_schedule_internal_continuation(
+            session=session,
+            session_key=session_key,
+            channel=channel,
+            chat_id=resolved_chat_id,
+            message=message,
+            inbound_metadata=meta,
+            run_result=run_result,
+            extra_runtime_lines=extra_runtime_lines,
+            current_role=current_role,
+            message_id=str(meta.get("message_id") or "") or None,
+        )
+        if continuation_scheduled:
+            run_result.stop_reason = "continued"
+            run_result.final_content = ""
+
         persisted_messages = self._persist_runner_messages(session, ctx, run_result)
         if inbound_persisted:
             session.clear_pending_user_turn()
+        session.enforce_file_cap(
+            on_archive=partial(self.memory.raw_archive, session_key=session.key),
+        )
         self.sessions.save(session)
         if self.consolidator is not None:
             await self.consolidator.maybe_consolidate(session)
@@ -413,6 +470,7 @@ class AgentLoop:
             messages=persisted_messages,
             tools_used=list(run_result.tools_used),
             usage=dict(run_result.usage),
+            suppress_outbound=continuation_scheduled,
         )
 
     def _merged_mcp_runtime_lines(
@@ -563,6 +621,54 @@ class AgentLoop:
 
         return messages
 
+    async def _maybe_schedule_internal_continuation(
+        self,
+        *,
+        session: Session,
+        session_key: str,
+        channel: str,
+        chat_id: str,
+        message: str,
+        inbound_metadata: dict[str, Any],
+        run_result: AgentRunResult,
+        extra_runtime_lines: Sequence[str] | None,
+        current_role: str,
+        message_id: str | None,
+    ) -> bool:
+        if self.bus is None:
+            return False
+
+        continuation_available = goal_continuation_available(
+            session.metadata,
+            message_metadata=inbound_metadata,
+        )
+        if not should_stream_budget_response(
+            stop_reason=run_result.stop_reason,
+            continuation_available=continuation_available,
+        ):
+            metadata = build_internal_continuation_metadata(
+                inbound_metadata,
+                run_started_at=(internal_continuation_run_started_at(inbound_metadata) or time.perf_counter()),
+            )
+            prompt = build_goal_continuation_prompt(session.metadata)
+            increment_goal_continuation_round(session.metadata)
+            mark_internal_continuation_pending(inbound_metadata)
+            await self.bus.publish_inbound(
+                InboundMessage(
+                    channel=channel,
+                    chat_id=chat_id,
+                    session_key=session_key,
+                    text=prompt,
+                    message_id=message_id,
+                    sender_id=GOAL_CONTINUATION_SENDER,
+                    current_role=current_role,
+                    metadata=metadata,
+                    extra_runtime_lines=list(extra_runtime_lines or []),
+                )
+            )
+            return True
+        return False
+
     @staticmethod
     def _needs_synthetic_final_message(
         run_result: AgentRunResult,
@@ -615,11 +721,17 @@ class AgentLoop:
         self.settings.mcp_servers = [server.model_copy(deep=True) for server in refreshed_settings.mcp_servers]
         return result
 
+    async def reconnect_mcp(self, server_name: str | None = None) -> dict[str, Any]:
+        return await self.mcp.reconnect(server_name, registry=self.tools)
+
     async def aclose(self) -> None:
         """Flush session state for graceful shutdown."""
         self.stop()
         self.cron.stop(wait=True)
         self.subagents.shutdown(wait=False)
+        background = list(self._background_tasks)
+        if background:
+            await asyncio.gather(*background, return_exceptions=True)
         await self.mcp.aclose()
         self.sessions.flush_all()
 
@@ -632,3 +744,16 @@ class AgentLoop:
             asyncio.run(self.aclose())
             return
         raise RuntimeError("AgentLoop.close() cannot be called from a running event loop; use aclose().")
+
+    def _schedule_background(self, coro: Any) -> None:
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+
+        def _cleanup(done: asyncio.Task[Any]) -> None:
+            self._background_tasks.discard(done)
+            with suppress(asyncio.CancelledError):
+                exc = done.exception()
+                if exc is not None:
+                    logger.warning("AgentLoop background task failed", exc_info=exc)
+
+        task.add_done_callback(_cleanup)

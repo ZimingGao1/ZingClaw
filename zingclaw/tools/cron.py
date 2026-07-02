@@ -136,7 +136,7 @@ class CronTool(Tool, _CronContextMixin):
             return self._list_jobs()
         if action == "remove":
             return self._remove_job(job_id)
-        return f"Error: unknown action '{action}'"
+        return self.error(f"unknown action '{action}'")
 
     def _add_job(
         self,
@@ -150,9 +150,9 @@ class CronTool(Tool, _CronContextMixin):
     ) -> str:
         request_ctx = self._current_request_context()
         if request_ctx is None or not request_ctx.session_key or not request_ctx.channel or not request_ctx.chat_id:
-            return "Error: scheduled cron jobs must be created from an active chat session."
+            return self.error("scheduled cron jobs must be created from an active chat session.")
         if not message.strip():
-            return "Error: message is required when action='add'"
+            return self.error("message is required when action='add'")
 
         schedule_count = sum(
             1
@@ -160,11 +160,11 @@ class CronTool(Tool, _CronContextMixin):
             if value not in (None, "", 0)
         )
         if schedule_count != 1:
-            return "Error: provide exactly one schedule: every_seconds, cron_expr, or at"
+            return self.error("provide exactly one schedule: every_seconds, cron_expr, or at")
         if tz and not cron_expr:
-            return "Error: tz can only be used with cron_expr"
+            return self.error("tz can only be used with cron_expr")
         if tz and not self._is_valid_timezone(tz):
-            return f"Error: unknown timezone '{tz}'"
+            return self.error(f"unknown timezone '{tz}'")
 
         delete_after_run = False
         if every_seconds:
@@ -172,14 +172,14 @@ class CronTool(Tool, _CronContextMixin):
         elif cron_expr:
             effective_tz = tz or self._default_timezone
             if not self._is_valid_timezone(effective_tz):
-                return f"Error: unknown timezone '{effective_tz}'"
+                return self.error(f"unknown timezone '{effective_tz}'")
             schedule = CronSchedule(kind="cron", expr=str(cron_expr).strip(), tz=effective_tz)
         else:
             assert at is not None
             try:
                 dt = datetime.fromisoformat(str(at).strip())
             except ValueError:
-                return f"Error: invalid ISO datetime format '{at}'"
+                return self.error(f"invalid ISO datetime format '{at}'")
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=self._zoneinfo(self._default_timezone))
             schedule = CronSchedule(kind="at", at_ms=int(dt.timestamp() * 1000))
@@ -219,7 +219,7 @@ class CronTool(Tool, _CronContextMixin):
 
     def _remove_job(self, job_id: str | None) -> str:
         if not str(job_id or "").strip():
-            return "Error: job_id is required when action='remove'"
+            return self.error("job_id is required when action='remove'")
         return (
             f"Removed job {job_id}"
             if self._cron.remove_job(str(job_id).strip())

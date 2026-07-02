@@ -163,3 +163,9 @@ def test_nullable_type_accepts_none() -> None:
     assert tool.cast_params({"name": None}) == {"name": None}
     assert tool.validate_params({"name": None}) == []
 
+
+def test_tool_format_parameter_hint_lists_declared_keys() -> None:
+    tool = DecoratedSampleTool()
+
+    assert tool.parameter_names() == ["count", "query"]
+    assert tool.format_parameter_hint() == "Accepted keys: count, query."

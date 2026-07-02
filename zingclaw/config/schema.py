@@ -35,7 +35,17 @@ class AgentConfig(ConfigSection):
     max_iterations: int = 20
     max_concurrent_subagents: int = 1
     max_tool_result_chars: int = 16_000
+    session_ttl_minutes: int = Field(
+        default=0,
+        validation_alias=AliasChoices(
+            "idleCompactAfterMinutes",
+            "sessionTtlMinutes",
+            "session_ttl_minutes",
+        ),
+        serialization_alias="idleCompactAfterMinutes",
+    )
     provider_retry_mode: Literal["standard", "persistent"] = "standard"
+    enabled_skills: list[str] = Field(default_factory=list)
     disabled_skills: list[str] = Field(default_factory=list)
 
 
@@ -99,6 +109,8 @@ class MemoryConfig(ConfigSection):
     enabled: bool = True
     consolidation_threshold: int = 50
     max_history_entries: int = 100
+    recent_keep_messages: int | None = None
+    prompt_token_budget: int | None = None
 
 
 class LoggingConfig(ConfigSection):

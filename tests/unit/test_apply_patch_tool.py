@@ -124,8 +124,8 @@ async def test_apply_patch_rejects_ambiguous_or_invalid_edits(tmp_path) -> None:
     )
     invalid = await tool.execute(edits=[{"path": "oops.txt", "new_text": "x"}])
 
-    assert "old_text appears multiple times" in ambiguous
-    assert "action required for edit: oops.txt" in invalid
+    assert "Error: applying patch failed: old_text appears multiple times in repeated.txt" in ambiguous
+    assert "Error: applying patch failed: action required for edit: oops.txt" in invalid
     assert target.read_text(encoding="utf-8") == "target\nmiddle\ntarget\n"
 
 

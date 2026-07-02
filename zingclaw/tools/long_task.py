@@ -97,18 +97,18 @@ class LongTaskTool(Tool, _GoalToolsMixin):
         del kwargs
         session = self._session()
         if session is None:
-            return "Error: long_task requires an active session context."
+            return self.error("long_task requires an active session context.")
 
         prior = parse_goal_state(goal_state_raw(session.metadata))
         if isinstance(prior, dict) and prior.get("status") == "active":
-            return (
+            return self.error(
                 "Error: a sustained goal is already active. "
                 "Use complete_goal first, or ask the user before replacing it."
             )
 
         objective = goal.strip()
         if not objective:
-            return "Error: goal must not be empty."
+            return self.error("goal must not be empty.")
 
         summary = (ui_summary or "").strip()[:120]
         session.metadata[GOAL_STATE_KEY] = {
@@ -121,7 +121,7 @@ class LongTaskTool(Tool, _GoalToolsMixin):
         self._sessions.save(session)
 
         suffix = f"\nSummary line: {summary}" if summary else ""
-        return (
+        return self.ok(
             "Goal recorded. Keep working toward it with normal tools, and call "
             f"complete_goal when the objective is done or intentionally stopped.{suffix}"
         )
@@ -174,11 +174,11 @@ class CompleteGoalTool(Tool, _GoalToolsMixin):
         del kwargs
         session = self._session()
         if session is None:
-            return "Error: complete_goal requires an active session context."
+            return self.error("complete_goal requires an active session context.")
 
         prior = parse_goal_state(goal_state_raw(session.metadata))
         if not isinstance(prior, dict) or prior.get("status") != "active":
-            return "No active goal to complete."
+            return self.ok("No active goal to complete.")
 
         ended_at = _iso_now()
         session.metadata[GOAL_STATE_KEY] = {
@@ -192,5 +192,5 @@ class CompleteGoalTool(Tool, _GoalToolsMixin):
 
         tail = (recap or "").strip()
         if tail:
-            return f"Goal marked complete ({ended_at}). Recap:\n{tail}"
-        return f"Goal marked complete ({ended_at})."
+            return self.ok(f"Goal marked complete ({ended_at}). Recap:\n{tail}")
+        return self.ok(f"Goal marked complete ({ended_at}).")

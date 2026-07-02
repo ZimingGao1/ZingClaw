@@ -181,6 +181,9 @@ async def test_mcp_runtime_registers_tool_resource_and_prompt_wrappers(tmp_path:
         assert statuses[0].resource_count == 1
         assert statuses[0].prompt_count == 1
         assert statuses[0].capability_count == 4
+        assert statuses[0].tool_names == ["mcp_demo_echo", "mcp_demo_shout"]
+        assert statuses[0].resource_names == ["mcp_demo_resource_greeting"]
+        assert statuses[0].prompt_names == ["mcp_demo_prompt_review_plan"]
 
         echo_result = await registry.execute("mcp_demo_echo", {"value": "ok"})
         resource_result = await registry.execute("mcp_demo_resource_greeting", {})
@@ -310,8 +313,31 @@ async def test_mcp_runtime_reload_reconciles_registered_tools(tmp_path: Path) ->
 
         assert result["ok"] is True
         assert result["changed"] == ["demo"]
+        assert result["recovered"] == ["demo"]
         assert "mcp_demo_echo" not in registry.tool_names
         assert "mcp_demo_shout" in registry.tool_names
+    finally:
+        await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_mcp_runtime_reconnect_restores_server_capabilities(tmp_path: Path) -> None:
+    settings = _mcp_settings(tmp_path)
+    registry = ToolRegistry()
+    runtime = MCPRuntime(settings, workspace=settings.workspace_dir)
+
+    try:
+        await runtime.connect_missing_servers(registry)
+        await runtime._close_server("demo")
+        runtime._last_errors["demo"] = "ConnectionError: simulated drop"
+
+        result = await runtime.reconnect("demo", registry=registry)
+        statuses = runtime.status()
+
+        assert result["ok"] is True
+        assert result["recovered"] == ["demo"]
+        assert statuses[0].connected is True
+        assert "mcp_demo_echo" in statuses[0].tool_names
     finally:
         await runtime.aclose()
 

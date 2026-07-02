@@ -47,6 +47,40 @@ def test_skills_loader_prefers_workspace_then_configured_then_builtin(tmp_path: 
     assert loader.get_always_skills() == ["memory"]
 
 
+def test_skills_loader_prefers_configured_before_builtin(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    configured = tmp_path / "configured-skills"
+    builtin = tmp_path / "builtin-skills"
+    workspace.mkdir()
+    configured.mkdir()
+    builtin.mkdir()
+
+    _write_skill(
+        configured,
+        "design-thinking",
+        "---\ndescription: configured design thinking\n---\n\n# Design Thinking\n\nConfigured copy.",
+    )
+    _write_skill(
+        builtin,
+        "design-thinking",
+        "---\ndescription: builtin design thinking\n---\n\n# Design Thinking\n\nBuiltin copy.",
+    )
+
+    loader = SkillsLoader(workspace, skills_dir=configured, builtin_skills_dir=builtin)
+    skills = loader.list_skills(filter_unavailable=False)
+    summary = loader.build_skills_summary()
+
+    assert skills == [
+        {
+            "name": "design-thinking",
+            "path": str(configured / "design-thinking" / "SKILL.md"),
+            "source": "configured",
+        }
+    ]
+    assert "configured design thinking" in summary
+    assert "[configured]" in summary
+
+
 def test_skills_loader_builds_summary_marks_unavailable_and_strips_frontmatter(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     configured = tmp_path / "configured-skills"
@@ -121,6 +155,45 @@ def test_skills_loader_respects_disabled_skills_case_insensitively(tmp_path: Pat
     assert loader.get_always_skills() == []
 
 
+def test_skills_loader_respects_enabled_skills_whitelist_case_insensitively(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    configured = tmp_path / "configured-skills"
+    builtin = tmp_path / "builtin-skills"
+    workspace.mkdir()
+    configured.mkdir()
+    builtin.mkdir()
+
+    _write_skill(
+        configured,
+        "zoom",
+        "---\ndescription: configured zoom\n---\n\n# Zoom\n\nConfigured zoom skill.",
+    )
+    _write_skill(
+        builtin,
+        "memory",
+        "---\ndescription: builtin memory\nalways: true\n---\n\n# Memory\n\nBuiltin memory skill.",
+    )
+
+    loader = SkillsLoader(
+        workspace,
+        skills_dir=configured,
+        builtin_skills_dir=builtin,
+        enabled_skills={"MEMORY"},
+    )
+
+    skills = loader.list_skills(filter_unavailable=False)
+
+    assert skills == [
+        {
+            "name": "memory",
+            "path": str(builtin / "memory" / "SKILL.md"),
+            "source": "builtin",
+        }
+    ]
+    assert loader.get_always_skills() == ["memory"]
+    assert loader.get_skill_availability("zoom") == (False, "skill not found or disabled")
+
+
 def test_skills_loader_understands_nested_nanobot_metadata(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     builtin = tmp_path / "builtin-skills"
@@ -168,10 +241,12 @@ def test_repo_builtin_skills_include_memory_github_weather_and_long_goal(tmp_pat
 
     assert "memory" in names
     assert "github" in names
+    assert "cron" in names
     assert "long-goal" in names
     assert "weather" in names
     assert loader.get_always_skills() == ["memory"]
     assert "### Skill: memory" in loader.load_skills_for_context(["memory"])
+    assert "- **cron** -" in summary
     assert "- **github** -" in summary
     assert "- **long-goal** -" in summary
     assert "- **weather** -" in summary

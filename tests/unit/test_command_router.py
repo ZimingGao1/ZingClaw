@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from zingclaw.command import CommandContext, CommandRouter, build_help_text, format_mcp_status_text
-from zingclaw.command.builtin import cmd_clear, cmd_mcp_reload, register_builtin_commands
+from zingclaw.command.builtin import cmd_clear, cmd_mcp_reconnect, cmd_mcp_reload, register_builtin_commands
 from zingclaw.tools import MCPServerStatus
 
 
@@ -50,12 +50,19 @@ class _FakeLoop:
                 resource_count=1,
                 prompt_count=1,
                 capability_count=4,
+                tool_names=["mcp_demo_echo", "mcp_demo_shout"],
+                resource_names=["mcp_demo_resource_greeting"],
+                prompt_names=["mcp_demo_prompt_review_plan"],
             )
         ]
 
     async def reload_mcp(self) -> dict[str, Any]:
         self.reload_calls += 1
         return {"ok": True, "message": "reloaded"}
+
+    async def reconnect_mcp(self, server_name: str | None = None) -> dict[str, Any]:
+        self.reload_calls += 1
+        return {"ok": True, "message": f"reconnected:{server_name or 'all'}"}
 
 
 @pytest.mark.asyncio
@@ -136,6 +143,24 @@ async def test_builtin_mcp_reload_command_returns_reload_message_and_status() ->
     assert "mcp_demo_" in outbound.text
 
 
+@pytest.mark.asyncio
+async def test_builtin_mcp_reconnect_command_returns_reconnect_message_and_status() -> None:
+    loop = _FakeLoop()
+    ctx = CommandContext(
+        raw="/mcp reconnect demo",
+        session_key="demo",
+        channel="cli",
+        chat_id="demo",
+        loop=loop,
+        args="demo",
+    )
+
+    outbound = await cmd_mcp_reconnect(ctx)
+
+    assert "reconnected:demo" in outbound.text
+    assert "MCP Status" in outbound.text
+
+
 def test_help_text_and_status_text_are_human_readable() -> None:
     help_text = build_help_text(include_exit=True)
     status_text = format_mcp_status_text(
@@ -150,6 +175,7 @@ def test_help_text_and_status_text_are_human_readable() -> None:
                 resource_count=1,
                 prompt_count=1,
                 capability_count=4,
+                tool_names=["mcp_demo_echo"],
             )
         ]
     )
@@ -158,6 +184,7 @@ def test_help_text_and_status_text_are_human_readable() -> None:
     assert "`/exit`" in help_text
     assert "MCP Status" in status_text
     assert "demo: stdio, connected" in status_text
+    assert "tools: mcp_demo_echo" in status_text
 
 
 @pytest.mark.asyncio

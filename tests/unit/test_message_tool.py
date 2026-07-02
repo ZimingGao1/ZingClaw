@@ -141,3 +141,22 @@ async def test_message_tool_reports_missing_delivery_configuration(tmp_path: Pat
         tool.reset_context(token)
 
     assert result == "Error: Message sending not configured"
+
+
+@pytest.mark.asyncio
+async def test_message_tool_rejects_unsupported_media_url_scheme(tmp_path: Path) -> None:
+    tool = MessageTool(send_callback=lambda message: None, workspace=tmp_path)
+    token = tool.set_context(
+        RequestContext(
+            session_key="demo",
+            channel="cli",
+            chat_id="chat-1",
+        )
+    )
+
+    try:
+        result = await tool.execute("bad media", media=["file:///tmp/nope.png"])
+    finally:
+        tool.reset_context(token)
+
+    assert result == "Error: media path is not allowed: unsupported media URL scheme: file"

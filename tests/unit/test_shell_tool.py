@@ -43,6 +43,15 @@ async def test_exec_runs_command_and_returns_exit_code(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_exec_rejects_blank_command(tmp_path: Path) -> None:
+    tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=True, timeout=5)
+
+    result = await tool.execute(command="   ")
+
+    assert result == "Error: command must not be empty"
+
+
+@pytest.mark.asyncio
 async def test_exec_uses_workspace_as_default_cwd(tmp_path: Path) -> None:
     tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=True, timeout=5)
     command = _cwd_command()
@@ -88,6 +97,30 @@ def test_guard_command_blocks_absolute_path_outside_workspace(tmp_path: Path) ->
 
     assert error is not None
     assert "path outside working dir" in error
+
+
+def test_guard_command_blocks_sensitive_paths_even_without_workspace_restriction(tmp_path: Path) -> None:
+    tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=False)
+    sensitive = Path.home() / ".ssh" / "id_rsa"
+
+    error = tool._guard_command(
+        f"type {sensitive}" if sys.platform == "win32" else f"cat {sensitive}",
+        str(tmp_path),
+        restrict_to_workspace=False,
+        workspace_root=str(tmp_path),
+    )
+
+    assert error is not None
+    assert "sensitive path" in error
+    assert "hard policy boundary" in error
+
+
+def test_guard_command_blocks_high_risk_git_reset(tmp_path: Path) -> None:
+    tool = ExecTool(working_dir=str(tmp_path), restrict_to_workspace=True)
+
+    error = tool._guard_command("git reset --hard HEAD~1", str(tmp_path))
+
+    assert error == "Error: Command blocked by deny pattern filter (destructive or unsafe command)"
 
 
 @pytest.mark.asyncio

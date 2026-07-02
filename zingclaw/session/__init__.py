@@ -15,6 +15,7 @@ from zingclaw.session.goal_state import (
 from zingclaw.session.manager import Session, SessionManager
 from zingclaw.session.turn_continuation import (
     GOAL_CONTINUATION_KIND,
+    GOAL_CONTINUATION_SENDER,
     GOAL_CONTINUATION_ROUNDS_KEY,
     INTERNAL_CONTINUATION_KIND_META,
     INTERNAL_CONTINUATION_META,
@@ -22,6 +23,7 @@ from zingclaw.session.turn_continuation import (
     INTERNAL_CONTINUATION_RUN_STARTED_AT_META,
     MAX_GOAL_CONTINUATION_ROUNDS,
     SKIP_USER_PERSIST_META,
+    build_goal_continuation_prompt,
     build_internal_continuation_metadata,
     clear_internal_continuation_state,
     goal_continuation_available,
@@ -29,11 +31,15 @@ from zingclaw.session.turn_continuation import (
     internal_continuation_inbound,
     internal_continuation_pending,
     internal_continuation_run_started_at,
+    mark_internal_continuation_pending,
+    should_finalize_on_max_iterations,
     should_persist_user_message,
+    should_stream_budget_response,
 )
 
 __all__ = [
     "GOAL_CONTINUATION_KIND",
+    "GOAL_CONTINUATION_SENDER",
     "GOAL_CONTINUATION_ROUNDS_KEY",
     "GOAL_STATE_KEY",
     "INTERNAL_CONTINUATION_KIND_META",
@@ -44,6 +50,7 @@ __all__ = [
     "SKIP_USER_PERSIST_META",
     "Session",
     "SessionManager",
+    "build_goal_continuation_prompt",
     "build_internal_continuation_metadata",
     "clear_goal_state",
     "clear_internal_continuation_state",
@@ -55,10 +62,13 @@ __all__ = [
     "internal_continuation_inbound",
     "internal_continuation_pending",
     "internal_continuation_run_started_at",
+    "mark_internal_continuation_pending",
     "parse_goal_state",
     "runner_wall_llm_timeout_s",
     "set_goal_state",
+    "should_finalize_on_max_iterations",
     "should_persist_user_message",
+    "should_stream_budget_response",
     "sustained_goal_active",
     "sustained_goal_turn",
 ]

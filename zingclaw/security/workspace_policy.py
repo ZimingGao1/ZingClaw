@@ -6,10 +6,17 @@ import os
 from pathlib import Path
 from typing import Iterable
 
+from zingclaw.security.sensitive_paths import sensitive_path_reason
+
 WORKSPACE_BOUNDARY_NOTE = (
     "\n\nNote: this is a hard policy boundary, not a transient failure. "
     "Do NOT retry with shell tricks or path workarounds. "
     "If the user really needs this resource, ask how they want to proceed."
+)
+SENSITIVE_PATH_NOTE = (
+    "\n\nNote: this path looks like a sensitive credential/profile location "
+    "(for example SSH keys, cloud auth, kube config, or browser profile data). "
+    "Do NOT try alternate commands to reach it unless the user explicitly wants that."
 )
 
 
@@ -88,8 +95,19 @@ def resolve_allowed_path(
 ) -> Path:
     """Resolve a path and require it to stay within the configured boundary."""
     resolved = resolve_path(path, workspace, strict=False)
+    sensitive_reason = sensitive_path_reason(path, workspace=workspace)
     files = list(extra_allowed_files or [])
     if allowed_root is None and not files and not list(extra_allowed_roots or []):
+        if sensitive_reason:
+            raise WorkspaceBoundaryError(
+                message
+                or (
+                    f"Path '{path}' resolves to a sensitive location "
+                    f"({sensitive_reason}) and is blocked by policy: {resolved}"
+                    + SENSITIVE_PATH_NOTE
+                    + WORKSPACE_BOUNDARY_NOTE
+                )
+            )
         return resolve_path(path, workspace, strict=strict) if strict else resolved
 
     roots: list[str | Path] = []
@@ -102,7 +120,18 @@ def resolve_allowed_path(
         resolved,
         files,
     )
-    if not is_path_allowed(resolved, roots) and not exact_allowed:
+    allowed = is_path_allowed(resolved, roots) or exact_allowed
+    if sensitive_reason and not allowed:
+        raise WorkspaceBoundaryError(
+            message
+            or (
+                f"Path '{path}' resolves to a sensitive location "
+                f"({sensitive_reason}) and is blocked by policy: {resolved}"
+                + SENSITIVE_PATH_NOTE
+                + WORKSPACE_BOUNDARY_NOTE
+            )
+        )
+    if not allowed:
         raise WorkspaceBoundaryError(
             message
             or f"Path '{path}' resolves outside the allowed workspace boundary: {resolved}"

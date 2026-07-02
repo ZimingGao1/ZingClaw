@@ -152,6 +152,7 @@ class FindFilesTool(_SearchTool):
                 "path": {
                     "type": "string",
                     "description": "Directory or file to search in (default '.')",
+                    "minLength": 1,
                 },
                 "query": {
                     "type": "string",
@@ -190,6 +191,7 @@ class FindFilesTool(_SearchTool):
                     "maximum": 100000,
                 },
             },
+            "additionalProperties": False,
         }
 
     def _iter_paths(self, root: Path, *, include_dirs: bool) -> Iterable[Path]:
@@ -219,13 +221,14 @@ class FindFilesTool(_SearchTool):
         **kwargs: Any,
     ) -> str:
         try:
-            target = self._resolve(path or ".")
+            clean_path = str(path or ".").strip() or "."
+            target = self._resolve(clean_path)
             if not target.exists():
-                return f"Error: Path not found: {path}"
+                return self.error(f"Path not found: {clean_path}")
             if not (target.is_dir() or target.is_file()):
-                return f"Error: Unsupported path: {path}"
+                return self.error(f"Unsupported path: {clean_path}")
             if sort not in {"path", "modified"}:
-                return "Error: sort must be 'path' or 'modified'"
+                return self.error("sort must be 'path' or 'modified'")
 
             limit = (
                 _DEFAULT_FILE_HEAD_LIMIT
@@ -267,7 +270,7 @@ class FindFilesTool(_SearchTool):
             paths = [item[0] for item in matches]
             paged, truncated = _paginate(paths, limit, offset)
             if not paged:
-                return "No files found"
+                return self.ok("No files found")
 
             result = "\n".join(paged)
             note = _pagination_note(limit, offset, truncated)
@@ -275,9 +278,9 @@ class FindFilesTool(_SearchTool):
                 result += "\n\n" + note
             return result
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except Exception as exc:
-            return f"Error finding files: {exc}"
+            return self.error(f"finding files failed: {exc}")
 
 
 class GrepTool(_SearchTool):
@@ -317,6 +320,7 @@ class GrepTool(_SearchTool):
                 "path": {
                     "type": "string",
                     "description": "File or directory to search in (default '.')",
+                    "minLength": 1,
                 },
                 "glob": {
                     "type": "string",
@@ -384,6 +388,7 @@ class GrepTool(_SearchTool):
                 },
             },
             "required": ["pattern"],
+            "additionalProperties": False,
         }
 
     @staticmethod
@@ -420,20 +425,24 @@ class GrepTool(_SearchTool):
         **kwargs: Any,
     ) -> str:
         try:
-            target = self._resolve(path or ".")
+            pattern = str(pattern or "")
+            if not pattern.strip():
+                return self.error("pattern must not be empty")
+            clean_path = str(path or ".").strip() or "."
+            target = self._resolve(clean_path)
             if not target.exists():
-                return f"Error: Path not found: {path}"
+                return self.error(f"Path not found: {clean_path}")
             if not (target.is_dir() or target.is_file()):
-                return f"Error: Unsupported path: {path}"
+                return self.error(f"Unsupported path: {clean_path}")
             if output_mode not in {"content", "files_with_matches", "count"}:
-                return "Error: output_mode must be 'content', 'files_with_matches', or 'count'"
+                return self.error("output_mode must be 'content', 'files_with_matches', or 'count'")
 
             flags = re.IGNORECASE if case_insensitive else 0
             try:
                 needle = re.escape(pattern) if fixed_strings else pattern
                 regex = re.compile(needle, flags)
             except re.error as exc:
-                return f"Error: invalid regex pattern: {exc}"
+                return self.error(f"invalid regex pattern: {exc}")
 
             if head_limit is not None:
                 limit = None if head_limit == 0 else head_limit
@@ -542,7 +551,7 @@ class GrepTool(_SearchTool):
                     result = "\n".join(paged)
             elif output_mode == "count":
                 if not counts:
-                    result = f"No matches found for pattern '{pattern}' in {path}"
+                    result = f"No matches found for pattern '{pattern}' in {clean_path}"
                 else:
                     ordered_files = sorted(
                         matching_files,
@@ -552,7 +561,7 @@ class GrepTool(_SearchTool):
                     result = "\n".join(f"{name}: {counts[name]}" for name in ordered)
             else:
                 if not blocks:
-                    result = f"No matches found for pattern '{pattern}' in {path}"
+                    result = f"No matches found for pattern '{pattern}' in {clean_path}"
                 else:
                     result = "\n\n".join(blocks)
 
@@ -577,6 +586,6 @@ class GrepTool(_SearchTool):
                 result += "\n\n" + "\n".join(notes)
             return result
         except PermissionError as exc:
-            return f"Error: {exc}"
+            return self.error(str(exc))
         except Exception as exc:
-            return f"Error searching files: {exc}"
+            return self.error(f"searching files failed: {exc}")

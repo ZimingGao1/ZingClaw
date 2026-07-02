@@ -262,6 +262,33 @@ class Tool(ABC):
             raise ValueError(f"Schema must be object type, got {schema.get('type')!r}")
         return Schema.validate_json_schema_value(params, {**schema, "type": "object"}, "")
 
+    def parameter_names(self) -> list[str]:
+        """Return declared top-level parameter names in stable order."""
+        properties = (self.parameters or {}).get("properties", {})
+        if not isinstance(properties, dict):
+            return []
+        return sorted(str(name) for name in properties)
+
+    def format_parameter_hint(self) -> str:
+        """Render a short user-facing hint describing accepted parameters."""
+        names = self.parameter_names()
+        if not names:
+            return "This tool takes no parameters."
+        return "Accepted keys: " + ", ".join(names) + "."
+
+    @staticmethod
+    def error(message: str) -> str:
+        """Return a consistently prefixed tool error string."""
+        text = str(message).strip()
+        if text.startswith("Error:"):
+            return text
+        return f"Error: {text}"
+
+    @staticmethod
+    def ok(message: str) -> str:
+        """Return a consistently trimmed success/info string."""
+        return str(message).strip()
+
     def to_schema(self) -> dict[str, Any]:
         """Return the OpenAI-compatible function schema for this tool."""
         return {

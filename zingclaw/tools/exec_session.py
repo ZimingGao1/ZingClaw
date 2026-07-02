@@ -370,6 +370,7 @@ def format_session_poll(session_id: str, poll: _SessionPoll) -> str:
             "session_id": {
                 "type": "string",
                 "description": "Session id returned by exec when yield_time_ms is used.",
+                "minLength": 1,
             },
             "chars": {
                 "type": ["string", "null"],
@@ -468,6 +469,9 @@ class WriteStdinTool(Tool, _ExecRequestContextMixin):
     ) -> str:
         del kwargs
         try:
+            session_id = str(session_id or "").strip()
+            if not session_id:
+                return self.error("session_id is required")
             if max_output_chars is None:
                 max_output_chars = max_output_tokens
             output_limit = clamp_session_int(
@@ -502,9 +506,9 @@ class WriteStdinTool(Tool, _ExecRequestContextMixin):
             )
             return format_session_poll(session_id, poll)
         except KeyError:
-            return f"Error: exec session not found: {session_id}"
+            return self.error(f"exec session not found: {session_id}")
         except Exception as exc:
-            return f"Error writing to exec session: {exc}"
+            return self.error(f"writing to exec session failed: {exc}")
 
     async def _wait_for_output(
         self,
@@ -586,7 +590,7 @@ class ListExecSessionsTool(Tool, _ExecRequestContextMixin):
         try:
             sessions = await self._manager.list(owner_session_key=self._owner_session_key())
             if not sessions:
-                return "No active exec sessions."
+                return self.ok("No active exec sessions.")
             lines: list[str] = []
             for info in sessions:
                 command = " ".join(info.command.split())
@@ -600,4 +604,4 @@ class ListExecSessionsTool(Tool, _ExecRequestContextMixin):
                 )
             return "\n".join(lines)
         except Exception as exc:
-            return f"Error listing exec sessions: {exc}"
+            return self.error(f"listing exec sessions failed: {exc}")

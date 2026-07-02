@@ -12,12 +12,52 @@ export function createAppRenderer(els, hooks = {}) {
     return element.scrollHeight - element.clientHeight - element.scrollTop <= threshold;
   }
 
+  function setHidden(element, hidden) {
+    if (!element) {
+      return;
+    }
+    element.hidden = hidden;
+  }
+
   let followMessages = true;
+  let followRuntimeFeed = true;
+
+  function syncJumpButtons() {
+    setHidden(els.transcriptJumpBtn, followMessages || !els.messages || els.messages.childElementCount === 0);
+    setHidden(
+      els.runtimeJumpBtn,
+      followRuntimeFeed || !els.runtimeFeed || els.runtimeFeed.childElementCount === 0,
+    );
+  }
+
   if (els.messages) {
     els.messages.addEventListener("scroll", () => {
       followMessages = isNearBottom(els.messages);
+      syncJumpButtons();
     });
   }
+  if (els.runtimeFeed) {
+    els.runtimeFeed.addEventListener("scroll", () => {
+      followRuntimeFeed = isNearBottom(els.runtimeFeed);
+      syncJumpButtons();
+    });
+  }
+  els.transcriptJumpBtn?.addEventListener("click", () => {
+    if (!els.messages) {
+      return;
+    }
+    followMessages = true;
+    els.messages.scrollTop = els.messages.scrollHeight;
+    syncJumpButtons();
+  });
+  els.runtimeJumpBtn?.addEventListener("click", () => {
+    if (!els.runtimeFeed) {
+      return;
+    }
+    followRuntimeFeed = true;
+    els.runtimeFeed.scrollTop = els.runtimeFeed.scrollHeight;
+    syncJumpButtons();
+  });
 
   function renderStatus(vm) {
     els.runtimeStatus.textContent = vm.status.text;
@@ -33,6 +73,30 @@ export function createAppRenderer(els, hooks = {}) {
     els.sessionTitle.textContent = vm.header.title;
     els.sessionSubtitle.textContent = vm.header.subtitle;
     els.modelLabel.textContent = vm.header.model;
+  }
+
+  function renderActions(vm) {
+    if (els.reconnectBtn) {
+      els.reconnectBtn.disabled = !vm.actions.canReconnect;
+    }
+    if (els.renameSessionBtn) {
+      els.renameSessionBtn.disabled = !vm.actions.canManageSession;
+    }
+    if (els.clearSessionBtn) {
+      els.clearSessionBtn.disabled = !vm.actions.canManageSession;
+    }
+    if (els.deleteSessionBtn) {
+      els.deleteSessionBtn.disabled = !vm.actions.canManageSession;
+    }
+    if (els.sendBtn) {
+      els.sendBtn.disabled = !vm.actions.canSend;
+    }
+    if (els.composerInput) {
+      els.composerInput.disabled = !vm.actions.canSend;
+    }
+    if (els.composerHint) {
+      els.composerHint.textContent = vm.composer.hint;
+    }
   }
 
   function renderStage(vm) {
@@ -60,8 +124,14 @@ export function createAppRenderer(els, hooks = {}) {
   }
 
   function renderRuntimeFeed(vm) {
+    const previousScrollTop = els.runtimeFeed.scrollTop;
+    const shouldStickToBottom = followRuntimeFeed || isNearBottom(els.runtimeFeed);
+
     if (vm.runtimeFeed.isEmpty) {
       els.runtimeFeed.innerHTML = `<div class="empty-state">Runtime progress will appear here once a turn starts.</div>`;
+      els.runtimeFeed.scrollTop = 0;
+      followRuntimeFeed = true;
+      syncJumpButtons();
       return;
     }
     els.runtimeFeed.innerHTML = vm.runtimeFeed.lines
@@ -69,7 +139,16 @@ export function createAppRenderer(els, hooks = {}) {
         (line) => `<div class="runtime-item ${escapeHtml(line.kind || "system")}">${escapeHtml(line.text)}</div>`,
       )
       .join("");
-    els.runtimeFeed.scrollTop = els.runtimeFeed.scrollHeight;
+    if (shouldStickToBottom) {
+      els.runtimeFeed.scrollTop = els.runtimeFeed.scrollHeight;
+      followRuntimeFeed = true;
+      syncJumpButtons();
+      return;
+    }
+
+    const maxScrollTop = Math.max(0, els.runtimeFeed.scrollHeight - els.runtimeFeed.clientHeight);
+    els.runtimeFeed.scrollTop = Math.min(previousScrollTop, maxScrollTop);
+    syncJumpButtons();
   }
 
   function renderSessions(vm) {
@@ -109,6 +188,7 @@ export function createAppRenderer(els, hooks = {}) {
       els.messages.innerHTML = `<div class="empty-state">This session is empty. Send a message to begin.</div>`;
       els.messages.scrollTop = 0;
       followMessages = true;
+      syncJumpButtons();
       return;
     }
     els.messages.innerHTML = "";
@@ -123,11 +203,13 @@ export function createAppRenderer(els, hooks = {}) {
     if (shouldStickToBottom) {
       els.messages.scrollTop = els.messages.scrollHeight;
       followMessages = true;
+      syncJumpButtons();
       return;
     }
 
     const maxScrollTop = Math.max(0, els.messages.scrollHeight - els.messages.clientHeight);
     els.messages.scrollTop = Math.min(previousScrollTop, maxScrollTop);
+    syncJumpButtons();
   }
 
   function renderMcp(vm) {
@@ -149,7 +231,11 @@ export function createAppRenderer(els, hooks = {}) {
               <div>transport: ${escapeHtml(server.transport)}</div>
               <div>tools/resources/prompts: ${escapeHtml(`${server.toolCount}/${server.resourceCount}/${server.promptCount}`)}</div>
               <div>prefix: ${escapeHtml(server.toolPrefix)}</div>
+              ${server.target ? `<div>target: ${escapeHtml(server.target)}</div>` : ""}
             </div>
+            ${server.toolNames.length ? `<div class="mcp-details">tools: ${escapeHtml(server.toolNames.join(", "))}</div>` : ""}
+            ${server.resourceNames.length ? `<div class="mcp-details">resources: ${escapeHtml(server.resourceNames.join(", "))}</div>` : ""}
+            ${server.promptNames.length ? `<div class="mcp-details">prompts: ${escapeHtml(server.promptNames.join(", "))}</div>` : ""}
             ${server.error ? `<div class="mcp-details">${escapeHtml(server.error)}</div>` : ""}
           </div>
         `,
@@ -165,6 +251,7 @@ export function createAppRenderer(els, hooks = {}) {
       }
       renderStatus(vm);
       renderHeader(vm);
+      renderActions(vm);
       renderStage(vm);
       renderToolStrip(vm);
       renderRuntimeFeed(vm);

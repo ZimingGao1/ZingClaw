@@ -47,10 +47,23 @@ You can disable skills in config with:
 
 Disabled skills are excluded from discovery, summaries, and prompt injection.
 
+You can also explicitly whitelist skills:
+
+```json
+{
+  "agent": {
+    "enabledSkills": ["memory", "cron"]
+  }
+}
+```
+
+When `enabledSkills` is non-empty, only those skills are considered active.
+
 ## Available Skills
 
 | Skill | Description |
 |-------|-------------|
+| `cron` | Schedule reminders and recurring tasks with the built-in `cron` tool |
 | `github` | Interact with GitHub using the `gh` CLI |
 | `long-goal` | Sustained objectives using `long_task` and `complete_goal` |
 | `memory` | Session memory, archived history, and long-term notes guidance |

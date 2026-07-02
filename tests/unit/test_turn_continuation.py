@@ -4,15 +4,21 @@ from zingclaw.session.turn_continuation import (
     GOAL_CONTINUATION_ROUNDS_KEY,
     INTERNAL_CONTINUATION_KIND_META,
     INTERNAL_CONTINUATION_META,
+    INTERNAL_CONTINUATION_PENDING_META,
     INTERNAL_CONTINUATION_RUN_STARTED_AT_META,
     SKIP_USER_PERSIST_META,
+    build_goal_continuation_prompt,
     build_internal_continuation_metadata,
     clear_internal_continuation_state,
     goal_continuation_available,
     increment_goal_continuation_round,
     internal_continuation_inbound,
+    internal_continuation_pending,
     internal_continuation_run_started_at,
+    mark_internal_continuation_pending,
+    should_finalize_on_max_iterations,
     should_persist_user_message,
+    should_stream_budget_response,
 )
 
 
@@ -60,3 +66,30 @@ def test_goal_continuation_round_helpers_track_budget_state() -> None:
 
 def test_should_persist_user_message_respects_skip_flag() -> None:
     assert should_persist_user_message({SKIP_USER_PERSIST_META: True}) is False
+
+
+def test_turn_continuation_helpers_cover_budget_boundary_state() -> None:
+    assert should_stream_budget_response(stop_reason="completed", continuation_available=True) is True
+    assert should_stream_budget_response(stop_reason="max_iterations", continuation_available=False) is True
+    assert should_stream_budget_response(stop_reason="max_iterations", continuation_available=True) is False
+    assert should_finalize_on_max_iterations(continuation_available=False) is True
+    assert should_finalize_on_max_iterations(continuation_available=True) is False
+
+
+def test_goal_continuation_prompt_and_pending_marker() -> None:
+    metadata = {
+        "goal_state": {
+            "status": "active",
+            "objective": "Finish the migration.",
+            "ui_summary": "migration",
+        }
+    }
+    message_metadata: dict[str, object] = {}
+
+    prompt = build_goal_continuation_prompt(metadata)
+    mark_internal_continuation_pending(message_metadata)
+
+    assert "Finish the migration." in prompt
+    assert "complete_goal" in prompt
+    assert message_metadata[INTERNAL_CONTINUATION_PENDING_META] is True
+    assert internal_continuation_pending(message_metadata) is True

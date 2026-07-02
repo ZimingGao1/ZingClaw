@@ -27,6 +27,8 @@ function compactText(rawValue, maxChars = 140) {
 export function buildAppViewModel(state) {
   const session = state.currentSessionSummary || { key: state.currentSessionKey };
   const stage = state.currentStage || "idle";
+  const socketReady = Boolean(state.ws && state.ws.readyState === 1);
+  const canManageSession = Boolean(state.currentSessionKey);
   const searchQuery = String(state.sessionSearchQuery || "").trim().toLowerCase();
   const sessions = (state.sessions || [])
     .map((item) => ({
@@ -64,7 +66,11 @@ export function buildAppViewModel(state) {
     toolCount: server.tool_count,
     resourceCount: server.resource_count,
     promptCount: server.prompt_count,
+    toolNames: Array.isArray(server.tool_names) ? server.tool_names : [],
+    resourceNames: Array.isArray(server.resource_names) ? server.resource_names : [],
+    promptNames: Array.isArray(server.prompt_names) ? server.prompt_names : [],
     toolPrefix: server.tool_prefix || "-",
+    target: server.target || "",
     connected: Boolean(server.connected),
     stateClass: server.connected ? "connected" : "unavailable",
     stateLabel: server.connected ? "connected" : "unavailable",
@@ -84,6 +90,11 @@ export function buildAppViewModel(state) {
         compactText(state.currentSessionKey, 140) ||
         "No session selected",
       model: `model: ${state.model}`,
+    },
+    actions: {
+      canReconnect: canManageSession,
+      canManageSession,
+      canSend: socketReady && canManageSession,
     },
     stage: {
       name: stage,
@@ -127,6 +138,11 @@ export function buildAppViewModel(state) {
           : `${mcpServers.filter((item) => item.connected).length}/${mcpServers.length} connected`,
       items: mcpServers,
       isEmpty: mcpServers.length === 0,
+    },
+    composer: {
+      hint: socketReady
+        ? "Streaming replies and runtime progress appear in real time. Press Ctrl+Enter to send."
+        : "Connecting to the gateway. Sending will unlock as soon as the session is ready.",
     },
   };
 }

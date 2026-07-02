@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,19 @@ _STRIP_SKILL_FRONTMATTER = re.compile(
     r"^---\s*\r?\n(.*?)\r?\n---\s*\r?\n?",
     re.DOTALL,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class SkillSpec:
+    """Resolved information about one discoverable skill."""
+
+    name: str
+    path: Path
+    source: str
+    description: str
+    available: bool
+    missing_requirements: str = ""
+    always: bool = False
 
 
 class SkillsLoader:
@@ -32,6 +46,7 @@ class SkillsLoader:
         workspace: Path,
         builtin_skills_dir: Path | None = None,
         disabled_skills: set[str] | None = None,
+        enabled_skills: set[str] | None = None,
         *,
         skills_dir: Path | None = None,
     ) -> None:
@@ -47,40 +62,104 @@ class SkillsLoader:
             if builtin_skills_dir is not None
             else BUILTIN_SKILLS_DIR
         )
-        self.disabled_skills = {
-            str(name).strip().casefold()
-            for name in (disabled_skills or set())
-            if str(name).strip()
+        self.disabled_skills = self._normalize_skill_names(disabled_skills or set())
+        self.enabled_skills = self._normalize_skill_names(enabled_skills or set())
+
+    @staticmethod
+    def _normalize_skill_names(values: set[str] | list[str]) -> set[str]:
+        return {
+            str(value).strip().casefold()
+            for value in values
+            if str(value).strip()
         }
 
     def discover(self, *, filter_unavailable: bool = True) -> list[dict[str, str]]:
         """Compatibility alias for skill discovery."""
         return self.list_skills(filter_unavailable=filter_unavailable)
 
-    def _skill_entries_from_dir(
-        self,
-        base: Path,
-        source: str,
-        *,
-        skip_names: set[str] | None = None,
-    ) -> list[dict[str, str]]:
-        if not base.exists():
-            return []
+    def _source_roots(self) -> list[tuple[Path, str]]:
+        roots = [
+            (self.workspace_skills, "workspace"),
+            (self.skills_dir, "configured"),
+            (self.builtin_skills, "builtin"),
+        ]
+        ordered: list[tuple[Path, str]] = []
+        seen: set[Path] = set()
+        for path, source in roots:
+            resolved = Path(path).expanduser().resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            ordered.append((resolved, source))
+        return ordered
 
-        entries: list[dict[str, str]] = []
-        hidden = {name.casefold() for name in (skip_names or set())}
+    def _is_enabled(self, normalized_name: str) -> bool:
+        if normalized_name in self.disabled_skills:
+            return False
+        if self.enabled_skills and normalized_name not in self.enabled_skills:
+            return False
+        return True
 
-        for skill_dir in sorted(base.iterdir(), key=lambda item: item.name.lower()):
-            if not skill_dir.is_dir():
+    def _discover_paths(self) -> dict[str, tuple[Path, str]]:
+        discovered: dict[str, tuple[Path, str]] = {}
+        for root, source in self._source_roots():
+            if not root.exists():
                 continue
-            skill_file = skill_dir / "SKILL.md"
-            if not skill_file.exists():
+            for skill_dir in sorted(root.iterdir(), key=lambda item: item.name.lower()):
+                if not skill_dir.is_dir():
+                    continue
+                skill_file = skill_dir / "SKILL.md"
+                if not skill_file.is_file():
+                    continue
+                normalized = skill_dir.name.casefold()
+                if not self._is_enabled(normalized) or normalized in discovered:
+                    continue
+                discovered[normalized] = (skill_file.resolve(), source)
+        return discovered
+
+    def resolve_skill(self, name: str) -> SkillSpec | None:
+        normalized = str(name).strip().casefold()
+        if not normalized or not self._is_enabled(normalized):
+            return None
+
+        discovered = self._discover_paths()
+        resolved = discovered.get(normalized)
+        if resolved is None:
+            return None
+
+        path, source = resolved
+        display_name = path.parent.name
+        meta = self._get_skill_meta_from_path(path)
+        missing = "" if self._check_requirements(meta) else self._get_missing_requirements(meta)
+        return SkillSpec(
+            name=display_name,
+            path=path,
+            source=source,
+            description=self._get_skill_description_from_path(path),
+            available=not missing,
+            missing_requirements=missing,
+            always=bool(meta.get("always")),
+        )
+
+    def list_skill_specs(self, *, filter_unavailable: bool = True) -> list[SkillSpec]:
+        specs: list[SkillSpec] = []
+        for normalized_name, (path, source) in self._discover_paths().items():
+            display_name = path.parent.name
+            meta = self._get_skill_meta_from_path(path)
+            missing = "" if self._check_requirements(meta) else self._get_missing_requirements(meta)
+            spec = SkillSpec(
+                name=display_name,
+                path=path,
+                source=source,
+                description=self._get_skill_description_from_path(path),
+                available=not missing,
+                missing_requirements=missing,
+                always=bool(meta.get("always")),
+            )
+            if filter_unavailable and not spec.available:
                 continue
-            name = skill_dir.name
-            if name.casefold() in hidden or name.casefold() in self.disabled_skills:
-                continue
-            entries.append({"name": name, "path": str(skill_file), "source": source})
-        return entries
+            specs.append(spec)
+        return specs
 
     def list_skills(self, filter_unavailable: bool = True) -> list[dict[str, str]]:
         """
@@ -92,34 +171,20 @@ class SkillsLoader:
         Returns:
             List of skill info dicts with 'name', 'path', 'source'.
         """
-        skills = self._skill_entries_from_dir(self.workspace_skills, "workspace")
-        workspace_names = {entry["name"] for entry in skills}
+        return [
+            {
+                "name": spec.name,
+                "path": str(spec.path),
+                "source": spec.source,
+            }
+            for spec in self.list_skill_specs(filter_unavailable=filter_unavailable)
+        ]
 
-        if self.skills_dir != self.workspace_skills and self.skills_dir.exists():
-            configured_entries = self._skill_entries_from_dir(
-                self.skills_dir,
-                "configured",
-                skip_names=workspace_names,
-            )
-            skills.extend(configured_entries)
-            workspace_names |= {entry["name"] for entry in configured_entries}
-
-        if self.builtin_skills.exists():
-            skills.extend(
-                self._skill_entries_from_dir(
-                    self.builtin_skills,
-                    "builtin",
-                    skip_names=workspace_names,
-                )
-            )
-
-        if filter_unavailable:
-            return [
-                skill
-                for skill in skills
-                if self._check_requirements(self._get_skill_meta(skill["name"]))
-            ]
-        return skills
+    @staticmethod
+    def _read_skill_file(path: Path) -> str | None:
+        if not path.is_file():
+            return None
+        return path.read_text(encoding="utf-8")
 
     def load_skill(self, name: str) -> str | None:
         """
@@ -131,22 +196,10 @@ class SkillsLoader:
         Returns:
             Skill content or None if not found.
         """
-        normalized = name.casefold()
-        roots = [self.workspace_skills]
-        if self.skills_dir != self.workspace_skills:
-            roots.append(self.skills_dir)
-        roots.append(self.builtin_skills)
-
-        for root in roots:
-            if not root.exists():
-                continue
-            for skill_dir in root.iterdir():
-                if not skill_dir.is_dir() or skill_dir.name.casefold() != normalized:
-                    continue
-                path = skill_dir / "SKILL.md"
-                if path.exists():
-                    return path.read_text(encoding="utf-8")
-        return None
+        spec = self.resolve_skill(name)
+        if spec is None:
+            return None
+        return self._read_skill_file(spec.path)
 
     def load_skills_for_context(self, skill_names: list[str]) -> str:
         """
@@ -158,11 +211,18 @@ class SkillsLoader:
         Returns:
             Formatted skills content.
         """
-        parts = [
-            f"### Skill: {name}\n\n{self._strip_frontmatter(markdown)}"
-            for name in skill_names
-            if (markdown := self.load_skill(name))
-        ]
+        parts: list[str] = []
+        seen: set[str] = set()
+        for raw_name in skill_names:
+            normalized = str(raw_name).strip().casefold()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            spec = self.resolve_skill(raw_name)
+            if spec is None or not spec.available:
+                continue
+            markdown = self._read_skill_file(spec.path) or ""
+            parts.append(f"### Skill: {spec.name}\n\n{self._strip_frontmatter(markdown)}")
         return "\n\n---\n\n".join(parts)
 
     def build_summary(self) -> str:
@@ -183,26 +243,26 @@ class SkillsLoader:
         Returns:
             Markdown-formatted skills summary.
         """
-        all_skills = self.list_skills(filter_unavailable=False)
+        all_skills = self.list_skill_specs(filter_unavailable=False)
         if not all_skills:
             return ""
 
-        hidden = {name.casefold() for name in (exclude or set())}
+        hidden = self._normalize_skill_names(exclude or set())
         lines: list[str] = []
 
-        for entry in all_skills:
-            skill_name = entry["name"]
-            if skill_name.casefold() in hidden:
+        for spec in all_skills:
+            if spec.name.casefold() in hidden:
                 continue
-            meta = self._get_skill_meta(skill_name)
-            available = self._check_requirements(meta)
-            desc = self._get_skill_description(skill_name)
-            if available:
-                lines.append(f"- **{skill_name}** - {desc}")
+            source_tag = f" [{spec.source}]"
+            if spec.available:
+                lines.append(f"- **{spec.name}** - {spec.description}{source_tag}")
             else:
-                missing = self._get_missing_requirements(meta)
-                suffix = f" (unavailable: {missing})" if missing else " (unavailable)"
-                lines.append(f"- **{skill_name}** - {desc}{suffix}")
+                suffix = (
+                    f" (unavailable: {spec.missing_requirements})"
+                    if spec.missing_requirements
+                    else " (unavailable)"
+                )
+                lines.append(f"- **{spec.name}** - {spec.description}{suffix}{source_tag}")
         return "\n".join(lines)
 
     def _get_missing_requirements(self, skill_meta: dict[str, Any]) -> str:
@@ -217,13 +277,15 @@ class SkillsLoader:
 
     def get_skill_availability(self, name: str) -> tuple[bool, str]:
         """Return whether a skill can run and why not when it cannot."""
-        meta = self._get_skill_meta(name)
-        available = self._check_requirements(meta)
-        return available, "" if available else self._get_missing_requirements(meta)
+        spec = self.resolve_skill(name)
+        if spec is None:
+            return False, "skill not found or disabled"
+        return spec.available, spec.missing_requirements
 
     def get_skill_requirements(self, name: str) -> dict[str, list[str]]:
         """Return explicit command/env requirements and currently missing entries."""
-        requires = self._get_skill_meta(name).get("requires", {})
+        meta = self._get_skill_meta(name)
+        requires = meta.get("requires", {})
         bins = [str(value) for value in requires.get("bins", [])]
         env = [str(value) for value in requires.get("env", [])]
         return {
@@ -245,6 +307,18 @@ class SkillsLoader:
             if summary:
                 return summary
         return name
+
+    def _get_skill_description_from_path(self, path: Path) -> str:
+        meta = self._get_skill_meta_from_path(path)
+        if meta and meta.get("description"):
+            return str(meta["description"])
+
+        content = self._read_skill_file(path)
+        if content:
+            summary = self._extract_summary(content)
+            if summary:
+                return summary
+        return path.parent.name
 
     @staticmethod
     def _strip_frontmatter(content: str) -> str:
@@ -296,12 +370,20 @@ class SkillsLoader:
                 parsed[key] = raw_meta[key]
         return parsed
 
+    def _get_skill_meta_from_path(self, path: Path) -> dict[str, Any]:
+        raw_meta = self._get_skill_metadata_from_path(path) or {}
+        parsed = self._parse_nanobot_metadata(raw_meta.get("metadata"))
+        for key in ("always", "requires", "emoji", "install", "description"):
+            if key in raw_meta and key not in parsed:
+                parsed[key] = raw_meta[key]
+        return parsed
+
     def get_always_skills(self) -> list[str]:
         """Get skills marked as always=true that meet requirements."""
         return [
-            entry["name"]
-            for entry in self.list_skills(filter_unavailable=True)
-            if (meta := self._get_skill_meta(entry["name"])) and meta.get("always")
+            spec.name
+            for spec in self.list_skill_specs(filter_unavailable=True)
+            if spec.always
         ]
 
     def get_skill_metadata(self, name: str) -> dict[str, Any] | None:
@@ -314,7 +396,13 @@ class SkillsLoader:
         Returns:
             Metadata dict or None.
         """
-        content = self.load_skill(name)
+        spec = self.resolve_skill(name)
+        if spec is None:
+            return None
+        return self._get_skill_metadata_from_path(spec.path)
+
+    def _get_skill_metadata_from_path(self, path: Path) -> dict[str, Any] | None:
+        content = self._read_skill_file(path)
         if not content or not content.startswith("---"):
             return None
 

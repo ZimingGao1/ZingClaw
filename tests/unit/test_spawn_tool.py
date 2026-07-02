@@ -190,3 +190,22 @@ async def test_spawn_tool_requires_active_session_context(tmp_path: Path) -> Non
     result = await tool.execute("No session")
 
     assert result == "Error: spawn requires an active session context."
+
+
+@pytest.mark.asyncio
+async def test_spawn_tool_rejects_blank_task(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, home_dir=tmp_path)
+    manager = SubagentManager(
+        settings,
+        sessions=SessionManager(tmp_path / "sessions"),
+        provider_factory=lambda: RecordingProvider([LLMResponse(content="done", finish_reason="stop")]),
+    )
+    tool = SpawnTool(manager)
+    token = tool.set_context(RequestContext(session_key="cli:demo", channel="cli", chat_id="demo"))
+
+    try:
+        result = await tool.execute("   ")
+    finally:
+        tool.reset_context(token)
+
+    assert result == "Error: task must not be empty"

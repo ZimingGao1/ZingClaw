@@ -91,3 +91,14 @@ async def test_grep_count_mode_aggregates_matches(tmp_path: Path) -> None:
     assert "src/alpha.py: 2" in result
     assert "src/beta.py: 1" in result
     assert "(total matches: 3 in 2 files)" in result
+
+
+@pytest.mark.asyncio
+async def test_grep_rejects_blank_pattern(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    _write(workspace / "src" / "app.py", "print('app')\n")
+
+    tool = GrepTool(workspace=workspace, allowed_dir=workspace, restrict_to_workspace=True)
+    result = await tool.execute(pattern="   ", path=".")
+
+    assert result == "Error: pattern must not be empty"

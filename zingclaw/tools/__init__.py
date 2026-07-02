@@ -8,6 +8,7 @@ from zingclaw.tools.exec_session import ListExecSessionsTool, WriteStdinTool
 from zingclaw.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from zingclaw.tools.loader import ToolLoader
 from zingclaw.tools.long_task import CompleteGoalTool, LongTaskTool
+from zingclaw.tools.memory import SaveMemoryTool
 from zingclaw.tools.mcp import (
     INBOUND_META_RUNTIME_CONTROL,
     MCPPromptWrapper,
@@ -43,6 +44,7 @@ __all__ = [
     "ListExecSessionsTool",
     "LongTaskTool",
     "MessageTool",
+    "SaveMemoryTool",
     "MCPPromptWrapper",
     "MCPResourceWrapper",
     "MCPRuntime",

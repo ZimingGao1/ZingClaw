@@ -279,6 +279,9 @@ class MCPServerStatus:
     prompt_count: int = 0
     capability_count: int = 0
     capabilities: list[str] = field(default_factory=list)
+    tool_names: list[str] = field(default_factory=list)
+    resource_names: list[str] = field(default_factory=list)
+    prompt_names: list[str] = field(default_factory=list)
     error: str | None = None
 
 
@@ -291,6 +294,9 @@ class _ConnectedServer:
     tool_count: int = 0
     resource_count: int = 0
     prompt_count: int = 0
+    tool_names: list[str] = field(default_factory=list)
+    resource_names: list[str] = field(default_factory=list)
+    prompt_names: list[str] = field(default_factory=list)
 
 
 async def _probe_http_url(url: str, timeout: float = 3.0) -> bool:
@@ -533,6 +539,7 @@ class MCPRuntime:
         }
         self._connected: dict[str, _ConnectedServer] = {}
         self._registered_capabilities: dict[str, list[str]] = {}
+        self._registered_details: dict[str, dict[str, list[str]]] = {}
         self._last_errors: dict[str, str] = {}
         self._registry: ToolRegistry | None = None
         self._lock = asyncio.Lock()
@@ -606,6 +613,7 @@ class MCPRuntime:
             for name in [*removed, *changed]:
                 tools_removed += self._unregister_server_tools(name, target_registry)
                 self._registered_capabilities.pop(name, None)
+                self._registered_details.pop(name, None)
                 await self._close_server(name)
 
             self.settings = target_settings
@@ -641,10 +649,68 @@ class MCPRuntime:
                 "changed": changed,
                 "removed": removed,
                 "retried": retry_missing,
+                "recovered": sorted(name for name in to_connect if name in self._connected),
                 "connected": sorted(self._connected),
                 "configured": sorted(self._servers),
                 "failed": failed,
+                "errors": {name: self._last_errors.get(name, "") for name in failed},
                 "tools_removed": tools_removed,
+            }
+
+    async def reconnect(
+        self,
+        server_name: str | None = None,
+        *,
+        registry: ToolRegistry | None = None,
+    ) -> dict[str, Any]:
+        """Reconnect one MCP server or all configured servers without reloading config."""
+        target_registry = registry or self._registry
+        if target_registry is None:
+            raise RuntimeError("MCP runtime cannot reconnect before a ToolRegistry is attached")
+
+        async with self._lock:
+            self._registry = target_registry
+            names = [server_name] if server_name else sorted(self._servers)
+            missing = [name for name in names if name not in self._servers]
+            attempted: list[str] = []
+            recovered: list[str] = []
+            failed: list[str] = []
+            for name in names:
+                cfg = self._servers.get(name)
+                if cfg is None:
+                    continue
+                attempted.append(name)
+                self._unregister_server_tools(name, target_registry)
+                self._registered_capabilities.pop(name, None)
+                await self._close_server(name)
+                await self._connect_server(
+                    name,
+                    cfg,
+                    registry=target_registry,
+                    register_wrappers=True,
+                )
+                if name in self._connected:
+                    recovered.append(name)
+                else:
+                    failed.append(name)
+
+            if missing:
+                message = "Some requested MCP servers are not configured: " + ", ".join(missing)
+            elif failed:
+                message = "MCP reconnect finished, but some servers are still unavailable: " + ", ".join(failed)
+            else:
+                target = server_name or "all configured servers"
+                message = f"MCP reconnect succeeded for {target}."
+
+            return {
+                "ok": not failed and not missing,
+                "message": message,
+                "attempted": attempted,
+                "recovered": recovered,
+                "failed": failed,
+                "missing": missing,
+                "errors": {name: self._last_errors.get(name, "") for name in failed + missing},
+                "connected": sorted(self._connected),
             }
 
     async def call_tool(
@@ -724,6 +790,7 @@ class MCPRuntime:
             cfg = self._servers[name]
             connected = self._connected.get(name)
             capability_names = list(self._registered_capabilities.get(name, []))
+            detail_names = self._registered_details.get(name, {})
             items.append(
                 MCPServerStatus(
                     name=name,
@@ -736,6 +803,9 @@ class MCPRuntime:
                     prompt_count=0 if connected is None else connected.prompt_count,
                     capability_count=len(capability_names),
                     capabilities=capability_names,
+                    tool_names=list(detail_names.get("tool_names", [])) if connected is None else list(connected.tool_names),
+                    resource_names=list(detail_names.get("resource_names", [])) if connected is None else list(connected.resource_names),
+                    prompt_names=list(detail_names.get("prompt_names", [])) if connected is None else list(connected.prompt_names),
                     error=self._last_errors.get(name),
                 )
             )
@@ -878,6 +948,11 @@ class MCPRuntime:
                 self._registered_capabilities[name] = [wrapper.name for wrapper in wrappers]
             elif name not in self._registered_capabilities:
                 self._registered_capabilities[name] = [wrapper.name for wrapper in wrappers]
+            self._registered_details[name] = {
+                "tool_names": list(counts["tool_names"]),
+                "resource_names": list(counts["resource_names"]),
+                "prompt_names": list(counts["prompt_names"]),
+            }
 
             self._connected[name] = _ConnectedServer(
                 config=cfg,
@@ -887,6 +962,9 @@ class MCPRuntime:
                 tool_count=counts["tool_count"],
                 resource_count=counts["resource_count"],
                 prompt_count=counts["prompt_count"],
+                tool_names=counts["tool_names"],
+                resource_names=counts["resource_names"],
+                prompt_names=counts["prompt_names"],
             )
             self._last_errors.pop(name, None)
             logger.info(
@@ -909,7 +987,14 @@ class MCPRuntime:
         enabled = {item.strip() for item in cfg.enabled_tools if item.strip()}
         allow_all = not enabled or "*" in enabled
         wrappers: list[Tool] = []
-        counts = {"tool_count": 0, "resource_count": 0, "prompt_count": 0}
+        counts = {
+            "tool_count": 0,
+            "resource_count": 0,
+            "prompt_count": 0,
+            "tool_names": [],
+            "resource_names": [],
+            "prompt_names": [],
+        }
 
         tools_result = await session.list_tools()
         for tool_def in tools_result.tools:
@@ -917,8 +1002,10 @@ class MCPRuntime:
             wrapped_name = sanitize_mcp_name(f"mcp_{server_name}_{raw_name}")
             if not allow_all and raw_name not in enabled and wrapped_name not in enabled:
                 continue
-            wrappers.append(MCPToolWrapper.from_mcp_tool(self, server_name, tool_def))
+            wrapper = MCPToolWrapper.from_mcp_tool(self, server_name, tool_def)
+            wrappers.append(wrapper)
             counts["tool_count"] += 1
+            counts["tool_names"].append(wrapper.name)
 
         try:
             resources_result = await session.list_resources()
@@ -926,8 +1013,10 @@ class MCPRuntime:
             resources_result = None
         if resources_result is not None:
             for resource_def in resources_result.resources:
-                wrappers.append(MCPResourceWrapper(self, server_name, resource_def))
+                wrapper = MCPResourceWrapper(self, server_name, resource_def)
+                wrappers.append(wrapper)
                 counts["resource_count"] += 1
+                counts["resource_names"].append(wrapper.name)
 
         try:
             prompts_result = await session.list_prompts()
@@ -935,8 +1024,10 @@ class MCPRuntime:
             prompts_result = None
         if prompts_result is not None:
             for prompt_def in prompts_result.prompts:
-                wrappers.append(MCPPromptWrapper(self, server_name, prompt_def))
+                wrapper = MCPPromptWrapper(self, server_name, prompt_def)
+                wrappers.append(wrapper)
                 counts["prompt_count"] += 1
+                counts["prompt_names"].append(wrapper.name)
 
         return wrappers, counts
 

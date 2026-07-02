@@ -54,6 +54,24 @@ async def test_web_fetch_rejects_non_http_urls() -> None:
 
 
 @pytest.mark.asyncio
+async def test_web_search_rejects_blank_query() -> None:
+    tool = WebSearchTool(search_backend=lambda query, count: [])
+
+    result = await tool.execute("   ", count=3)
+
+    assert result == "Error: query must not be empty"
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_rejects_blank_url() -> None:
+    tool = WebFetchTool(validate_network_targets=False)
+
+    result = await tool.execute("   ")
+
+    assert result == "Error: url must not be empty"
+
+
+@pytest.mark.asyncio
 async def test_web_fetch_extracts_html_as_markdown() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url) == "https://example.com/docs"

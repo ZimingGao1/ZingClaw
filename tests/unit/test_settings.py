@@ -17,6 +17,7 @@ def test_settings_fill_runtime_dirs_from_home(tmp_path: Path) -> None:
     assert settings.agent.max_iterations == 20
     assert settings.agent.max_concurrent_subagents == 1
     assert settings.agent.max_tool_result_chars == 16_000
+    assert settings.agent.enabled_skills == []
     assert settings.agent.disabled_skills == []
     assert settings.security.restrict_to_workspace is True
     assert settings.security.exec_sandbox == ""

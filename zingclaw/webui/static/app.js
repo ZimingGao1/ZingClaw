@@ -2,10 +2,13 @@ import { reduceWebSocketFrame, normalizeMessage } from "/webui/protocol.js";
 import { createAppRenderer } from "/webui/renderer.js";
 import { createUiStore } from "/webui/store.js";
 
+const SESSION_STORAGE_KEY = "zingclaw.webui.currentSessionKey";
+
 const store = createUiStore();
 let reconnectTimer = null;
 let transcriptExpanded = false;
 let transcriptPlaceholder = null;
+let lastKnownSessionKey = null;
 
 const els = {
   sessionsList: document.getElementById("sessions-list"),
@@ -24,12 +27,17 @@ const els = {
   messages: document.getElementById("messages"),
   chatPanel: document.getElementById("chat-panel"),
   runtimeFeed: document.getElementById("runtime-feed"),
+  runtimeJumpBtn: document.getElementById("runtime-jump-btn"),
   transcriptExpandBtn: document.getElementById("transcript-expand-btn"),
+  transcriptCloseBtn: document.getElementById("transcript-close-btn"),
+  transcriptJumpBtn: document.getElementById("transcript-jump-btn"),
   transcriptModal: document.getElementById("transcript-modal"),
   transcriptBackdrop: document.getElementById("transcript-backdrop"),
   transcriptModalMount: document.getElementById("transcript-modal-mount"),
   composerForm: document.getElementById("composer-form"),
   composerInput: document.getElementById("composer-input"),
+  composerHint: document.getElementById("composer-hint"),
+  sendBtn: document.getElementById("send-btn"),
   newSessionBtn: document.getElementById("new-session-btn"),
   refreshSessionsBtn: document.getElementById("refresh-sessions-btn"),
   renameSessionBtn: document.getElementById("rename-session-btn"),
@@ -62,6 +70,39 @@ function clearReconnectTimer() {
   }
 }
 
+function persistSessionKey(sessionKey) {
+  try {
+    if (sessionKey) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, sessionKey);
+    } else {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+function readPreferredSessionKey() {
+  const url = new URL(window.location.href);
+  const urlSessionKey = url.searchParams.get("session");
+  if (urlSessionKey) {
+    return urlSessionKey;
+  }
+  try {
+    return window.localStorage.getItem(SESSION_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function syncSessionUrl(sessionKey) {
+  const url = new URL(window.location.href);
+  if (sessionKey) {
+    url.searchParams.set("session", sessionKey);
+  } else {
+    url.searchParams.delete("session");
+  }
+  window.history.replaceState({}, "", url);
+}
+
 function setTranscriptExpanded(nextValue) {
   const nextExpanded = Boolean(nextValue);
   if (!els.chatPanel || !els.transcriptModal || !els.transcriptModalMount) {
@@ -91,6 +132,9 @@ function setTranscriptExpanded(nextValue) {
     els.transcriptExpandBtn.textContent = transcriptExpanded ? "Collapse" : "Expand";
     els.transcriptExpandBtn.setAttribute("aria-pressed", transcriptExpanded ? "true" : "false");
   }
+  if (els.transcriptCloseBtn) {
+    els.transcriptCloseBtn.hidden = !transcriptExpanded;
+  }
 }
 
 function scheduleReconnect(sessionKey, delayMs = 1500) {
@@ -112,7 +156,13 @@ function scheduleReconnect(sessionKey, delayMs = 1500) {
 }
 
 store.subscribe(() => {
-  renderer.render(currentState());
+  const state = currentState();
+  if (state.currentSessionKey && state.currentSessionKey !== lastKnownSessionKey) {
+    lastKnownSessionKey = state.currentSessionKey;
+    persistSessionKey(state.currentSessionKey);
+    syncSessionUrl(state.currentSessionKey);
+  }
+  renderer.render(state);
 });
 
 async function requestJson(url, options = {}) {
@@ -391,6 +441,13 @@ if (els.composerForm && els.composerInput) {
     els.composerInput.value = "";
     els.composerInput.focus();
   });
+
+  els.composerInput.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      els.composerForm.requestSubmit();
+    }
+  });
 }
 
 els.newSessionBtn?.addEventListener("click", () =>
@@ -433,6 +490,9 @@ els.runtimeFilterSelect?.addEventListener("change", (event) => {
 els.transcriptExpandBtn?.addEventListener("click", () => {
   setTranscriptExpanded(!transcriptExpanded);
 });
+els.transcriptCloseBtn?.addEventListener("click", () => {
+  setTranscriptExpanded(false);
+});
 els.transcriptBackdrop?.addEventListener("click", () => {
   setTranscriptExpanded(false);
 });
@@ -451,7 +511,8 @@ async function bootstrap() {
   try {
     const sessions = await loadSessions();
     await loadMcpStatus();
-    const first = sessions[0];
+    const preferredSessionKey = readPreferredSessionKey();
+    const first = sessions.find((item) => item.key === preferredSessionKey) || sessions[0];
     if (first) {
       await connectWebSocket(first.key);
       return;

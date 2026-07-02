@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 
 from zingclaw.config import Settings
-from zingclaw.security import WorkspaceAccessPolicy, WorkspaceBoundaryError, resolve_allowed_path
+from zingclaw.security import (
+    WorkspaceAccessPolicy,
+    WorkspaceBoundaryError,
+    resolve_allowed_path,
+    sensitive_path_reason,
+)
 from zingclaw.tools import ExecTool, ReadFileTool, ToolContext
 
 
@@ -47,6 +52,24 @@ def test_workspace_access_policy_allows_explicit_extra_file_outside_workspace(tm
     assert policy.resolve_path(str(allowed_file)) == allowed_file.resolve()
     with pytest.raises(WorkspaceBoundaryError):
         policy.resolve_path(str(blocked_file))
+
+
+def test_resolve_allowed_path_blocks_sensitive_locations_even_without_workspace_restriction() -> None:
+    sensitive = Path.home() / ".ssh" / "id_rsa"
+
+    with pytest.raises(WorkspaceBoundaryError) as exc_info:
+        resolve_allowed_path(str(sensitive), workspace=Path.cwd())
+
+    assert "sensitive location" in str(exc_info.value)
+    assert "SSH keys" in str(exc_info.value)
+
+
+def test_sensitive_path_reason_detects_credential_roots_but_not_workspace_files(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    assert sensitive_path_reason(Path.home() / ".aws" / "credentials", workspace=workspace) == "AWS credentials"
+    assert sensitive_path_reason(workspace / ".env", workspace=workspace) is None
 
 
 @pytest.mark.asyncio

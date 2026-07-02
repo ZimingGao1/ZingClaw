@@ -196,3 +196,12 @@ async def test_edit_file_blocks_paths_outside_workspace(tmp_path) -> None:
 
     assert "outside the allowed workspace boundary" in result
     assert secret.read_text(encoding="utf-8") == "top secret"
+
+
+@pytest.mark.asyncio
+async def test_read_file_reports_missing_path_consistently(tmp_path) -> None:
+    tool = ReadFileTool(workspace=tmp_path)
+
+    result = await tool.execute(path="   ")
+
+    assert result == "Error: path is required"

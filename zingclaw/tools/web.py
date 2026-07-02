@@ -149,7 +149,7 @@ def _validate_url(url: str, *, validate_network_targets: bool = True) -> tuple[b
     {
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "Search query"},
+            "query": {"type": "string", "description": "Search query", "minLength": 1, "maxLength": 1000},
             "count": {
                 "type": "integer",
                 "description": "Maximum number of results to return",
@@ -212,15 +212,15 @@ class WebSearchTool(Tool):
         del kwargs
         search_query = query.strip()
         if not search_query:
-            return "Error: query must not be empty"
+            return self.error("query must not be empty")
 
         limit = max(1, min(int(count or self.max_results), _MAX_SEARCH_RESULTS))
         try:
             items = await self._search(search_query, limit)
         except ImportError:
-            return "Error: ddgs package not installed. Run: pip install ddgs"
+            return self.error("ddgs package not installed. Run: pip install ddgs")
         except Exception as exc:
-            return f"Error: DuckDuckGo search failed ({exc})"
+            return self.error(f"DuckDuckGo search failed ({exc})")
         return _format_search_results(search_query, items, limit)
 
     async def _search(self, query: str, limit: int) -> list[dict[str, Any]]:
@@ -251,7 +251,7 @@ class WebSearchTool(Tool):
     {
         "type": "object",
         "properties": {
-            "url": {"type": "string", "description": "URL to fetch"},
+            "url": {"type": "string", "description": "URL to fetch", "minLength": 1},
             "extract_mode": {
                 "type": "string",
                 "enum": ["markdown", "text"],
@@ -334,24 +334,26 @@ class WebFetchTool(Tool):
         mode = extractMode or extract_mode or "markdown"
         limit = maxChars or max_chars or self.max_chars
 
+        if not target_url:
+            return self.error("url must not be empty")
         if mode not in {"markdown", "text"}:
-            return "Error: extract_mode must be 'markdown' or 'text'"
+            return self.error("extract_mode must be 'markdown' or 'text'")
         ok, error = _validate_url(
             target_url,
             validate_network_targets=self._validate_network_targets,
         )
         if not ok:
-            return f"Error: URL validation failed: {error}"
+            return self.error(f"URL validation failed: {error}")
 
         try:
             response = await self._fetch_with_redirects(target_url)
         except Exception as exc:
-            return f"Error fetching URL: {exc}"
+            return self.error(f"fetching URL failed: {exc}")
 
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            return f"Error: HTTP {exc.response.status_code} while fetching {target_url}"
+            return self.error(f"HTTP {exc.response.status_code} while fetching {target_url}")
 
         content_type = response.headers.get("content-type", "")
         text: str

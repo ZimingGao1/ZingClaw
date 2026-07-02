@@ -14,7 +14,7 @@ def _resolve_sandbox_cwd(workspace: Path, cwd: str) -> str:
         return str(workspace)
 
 
-def _bwrap(command: str, workspace: str, cwd: str) -> str:
+def _bwrap_base(command: str, workspace: str, cwd: str, *, unshare_net: bool) -> str:
     """Wrap a command in a bubblewrap sandbox limited to the workspace."""
 
     ws = Path(workspace).expanduser().resolve()
@@ -32,6 +32,8 @@ def _bwrap(command: str, workspace: str, cwd: str) -> str:
     ]
 
     args = ["bwrap", "--new-session", "--die-with-parent", "--setenv", "HOME", str(ws)]
+    if unshare_net:
+        args.append("--unshare-net")
     for path in required:
         args += ["--ro-bind", path, path]
     for path in optional:
@@ -60,7 +62,17 @@ def _bwrap(command: str, workspace: str, cwd: str) -> str:
     return shlex.join(args)
 
 
-_BACKENDS = {"bwrap": _bwrap}
+def _bwrap(command: str, workspace: str, cwd: str) -> str:
+    return _bwrap_base(command, workspace, cwd, unshare_net=False)
+
+
+def _bwrap_net(command: str, workspace: str, cwd: str) -> str:
+    """Wrap a command in bubblewrap with network access disabled."""
+
+    return _bwrap_base(command, workspace, cwd, unshare_net=True)
+
+
+_BACKENDS = {"bwrap": _bwrap, "bwrap_net": _bwrap_net}
 
 
 def available_backends() -> list[str]:
@@ -74,7 +86,7 @@ def sandbox_backend_available(name: str) -> bool:
 
     if name not in _BACKENDS:
         return False
-    if name == "bwrap":
+    if name in {"bwrap", "bwrap_net"}:
         return shutil.which("bwrap") is not None
     return False
 

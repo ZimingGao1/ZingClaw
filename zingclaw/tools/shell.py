@@ -14,7 +14,7 @@ from typing import Any
 
 from loguru import logger
 
-from zingclaw.security import WORKSPACE_BOUNDARY_NOTE, WorkspaceAccessPolicy
+from zingclaw.security import WORKSPACE_BOUNDARY_NOTE, WorkspaceAccessPolicy, sensitive_path_reason
 from zingclaw.tools.base import Tool, tool_parameters
 from zingclaw.tools.exec_session import (
     DEFAULT_EXEC_SESSION_MANAGER,
@@ -44,8 +44,8 @@ class _PreparedCommand:
     {
         "type": "object",
         "properties": {
-            "command": {"type": "string", "description": "Shell command to execute"},
-            "cmd": {"type": "string", "description": "Compatibility alias for command"},
+            "command": {"type": "string", "description": "Shell command to execute", "minLength": 1},
+            "cmd": {"type": "string", "description": "Compatibility alias for command", "minLength": 1},
             "working_dir": {"type": "string", "description": "Optional working directory"},
             "workdir": {"type": "string", "description": "Compatibility alias for working_dir"},
             "timeout": {
@@ -159,11 +159,16 @@ class ExecTool(Tool, _ExecRequestContextMixin):
             r"\brm\s+-[rf]{1,2}\b",
             r"\bdel\s+/[fq]\b",
             r"\brmdir\s+/s\b",
+            r"\bremove-item\b[^\n\r]*\brecurse\b[^\n\r]*\bforce\b",
             r"(?:^|[;&|]\s*)format(?!=)\b",
             r"\b(mkfs|diskpart)\b",
             r"\bdd\s+if=",
             r">\s*/dev/sd",
             r"\b(shutdown|reboot|poweroff)\b",
+            r"\bgit\s+reset\s+--hard\b",
+            r"\bgit\s+checkout\s+--\b",
+            r"\bgit\s+clean\s+-[^\n\r]*\bf\b[^\n\r]*\bd\b",
+            r"\bset-executionpolicy\b",
             r":\(\)\s*\{.*\};\s*:",
         ]
         self.allow_patterns = allow_patterns or []
@@ -206,7 +211,10 @@ class ExecTool(Tool, _ExecRequestContextMixin):
         command = command or cmd
         working_dir = working_dir or workdir
         if not command:
-            return "Error: Missing command. Provide command or cmd."
+            return self.error("Missing command. Provide command or cmd.")
+        command = command.strip()
+        if not command:
+            return self.error("command must not be empty")
         if max_output_chars is None:
             max_output_chars = max_output_tokens
 
@@ -232,7 +240,7 @@ class ExecTool(Tool, _ExecRequestContextMixin):
                 )
             except asyncio.TimeoutError:
                 await self._kill_process(process)
-                return f"Error: Command timed out after {prepared.timeout} seconds"
+                return self.error(f"Command timed out after {prepared.timeout} seconds")
             except asyncio.CancelledError:
                 await self._kill_process(process)
                 raise
@@ -256,7 +264,7 @@ class ExecTool(Tool, _ExecRequestContextMixin):
                 ),
             )
         except Exception as exc:
-            return f"Error executing command: {exc}"
+            return self.error(f"executing command failed: {exc}")
 
     async def _execute_session(
         self,
@@ -283,7 +291,7 @@ class ExecTool(Tool, _ExecRequestContextMixin):
             )
             return format_session_poll(session_id, poll)
         except Exception as exc:
-            return f"Error executing command: {exc}"
+            return self.error(f"executing command failed: {exc}")
 
     def _resolve_timeout(self, timeout: int | None) -> int | None:
         if timeout:
@@ -524,9 +532,17 @@ class ExecTool(Tool, _ExecRequestContextMixin):
         if not explicitly_allowed:
             for pattern in self.deny_patterns:
                 if re.search(pattern, lower):
-                    return "Error: Command blocked by deny pattern filter"
+                    return "Error: Command blocked by deny pattern filter (destructive or unsafe command)"
             if self.allow_patterns:
                 return "Error: Command blocked by allowlist filter (not in allowlist)"
+
+        for raw in self._extract_absolute_paths(cmd):
+            reason = sensitive_path_reason(raw, workspace=self._workspace_root)
+            if reason:
+                return (
+                    f"Error: Command blocked by safety guard (sensitive path: {reason})"
+                    + WORKSPACE_BOUNDARY_NOTE
+                )
 
         should_restrict = self.restrict_to_workspace if restrict_to_workspace is None else restrict_to_workspace
         if should_restrict:

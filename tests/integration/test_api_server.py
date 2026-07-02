@@ -112,6 +112,8 @@ class FakeApiLoop:
                 prompt_count=0,
                 capability_count=4,
                 capabilities=["tools", "resources"],
+                tool_names=["mcp_filesystem_read_file", "mcp_filesystem_write_file"],
+                resource_names=["mcp_filesystem_resource_workspace"],
                 error=None if connected else "not connected yet",
             )
         ]
@@ -119,6 +121,10 @@ class FakeApiLoop:
     async def reload_mcp(self):
         self.reload_count += 1
         return {"ok": True, "message": "MCP config reloaded without restarting ZingClaw."}
+
+    async def reconnect_mcp(self, server_name: str | None = None):
+        self.reload_count += 1
+        return {"ok": True, "message": f"MCP reconnect succeeded for {server_name or 'all configured servers'}."}
 
 
 @pytest.mark.asyncio
@@ -187,10 +193,14 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert 'id="stage-badge"' in index_html
     assert 'id="tool-strip"' in index_html
     assert 'id="transcript-expand-btn"' in index_html
+    assert 'id="transcript-close-btn"' in index_html
+    assert 'id="transcript-jump-btn"' in index_html
     assert 'id="chat-panel"' in index_html
     assert 'id="runtime-filter-select"' in index_html
     assert 'id="clear-runtime-btn"' in index_html
+    assert 'id="runtime-jump-btn"' in index_html
     assert 'id="reconnect-btn"' in index_html
+    assert 'id="composer-hint"' in index_html
     assert asset_response.status == 200
     assert asset_response.headers["Cache-Control"].startswith("no-store")
     assert renderer_response.status == 200
@@ -200,11 +210,16 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert transcript_response.status == 200
     assert css_response.status == 200
     assert "async function bootstrap()" in asset_js
+    assert 'const SESSION_STORAGE_KEY = "zingclaw.webui.currentSessionKey";' in asset_js
     assert 'new WebSocket(wsUrl(sessionKey))' in asset_js
     assert "let transcriptExpanded = false;" in asset_js
     assert 'document.body.classList.toggle("transcript-expanded", transcriptExpanded);' in asset_js
     assert 'els.transcriptModalMount.appendChild(els.chatPanel);' in asset_js
     assert 'transcriptPlaceholder.parentNode.replaceChild(els.chatPanel, transcriptPlaceholder);' in asset_js
+    assert 'window.localStorage.setItem(SESSION_STORAGE_KEY, sessionKey);' in asset_js
+    assert 'window.history.replaceState({}, "", url);' in asset_js
+    assert 'const preferredSessionKey = readPreferredSessionKey();' in asset_js
+    assert 'if ((event.ctrlKey || event.metaKey) && event.key === "Enter")' in asset_js
     assert 'import { createAppRenderer } from "/webui/renderer.js"' in asset_js
     assert 'import { createUiStore } from "/webui/store.js"' in asset_js
     assert "renderer.render(currentState())" in asset_js
@@ -213,7 +228,16 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert 'type: "runtime_feed/filter"' in asset_js
     assert "export function createAppRenderer(els, hooks = {})" in renderer_js
     assert 'from "/webui/view-model.js"' in renderer_js
+    assert "let followRuntimeFeed = true;" in renderer_js
+    assert "function syncJumpButtons()" in renderer_js
+    assert "els.transcriptJumpBtn?.addEventListener(\"click\"" in renderer_js
+    assert "els.runtimeJumpBtn?.addEventListener(\"click\"" in renderer_js
+    assert "els.sendBtn.disabled = !vm.actions.canSend;" in renderer_js
+    assert "const shouldStickToBottom = followRuntimeFeed || isNearBottom(els.runtimeFeed);" in renderer_js
     assert "export function buildAppViewModel(state)" in view_model_js
+    assert "const socketReady = Boolean(state.ws && state.ws.readyState === 1);" in view_model_js
+    assert "canSend: socketReady && canManageSession" in view_model_js
+    assert "Press Ctrl+Enter to send." in view_model_js
     assert "runtimeFeedFilter" in view_model_js
     assert "sessionSearchQuery" in view_model_js
     assert "export function reduceUiState(currentState, action = {})" in store_js
@@ -234,6 +258,9 @@ async def test_webui_shell_routes_serve_index_and_assets(tmp_path) -> None:
     assert ".transcript-modal" in css_text
     assert ".transcript-backdrop" in css_text
     assert ".transcript-modal .chat-panel" in css_text
+    assert "body.transcript-expanded .transcript-close-btn" in css_text
+    assert ".scroll-anchor" in css_text
+    assert ".composer-input:disabled" in css_text
 
 
 @pytest.mark.asyncio
@@ -538,7 +565,7 @@ async def test_session_http_endpoints_support_create_rename_clear_and_delete(tmp
 
 
 @pytest.mark.asyncio
-async def test_mcp_http_endpoints_return_status_and_reload_updates_state(tmp_path) -> None:
+async def test_mcp_http_endpoints_return_status_reload_and_reconnect_updates_state(tmp_path) -> None:
     settings = Settings(_env_file=None, home_dir=tmp_path)
     fake_loop = FakeApiLoop(tmp_path / "sessions")
     runtime = GatewayRuntime(fake_loop)
@@ -552,6 +579,8 @@ async def test_mcp_http_endpoints_return_status_and_reload_updates_state(tmp_pat
         status_payload = await status_response.json()
         reload_response = await client.post("/api/mcp/reload", json={})
         reload_payload = await reload_response.json()
+        reconnect_response = await client.post("/api/mcp/reconnect", json={"server": "filesystem"})
+        reconnect_payload = await reconnect_response.json()
     finally:
         await client.close()
 
@@ -559,8 +588,18 @@ async def test_mcp_http_endpoints_return_status_and_reload_updates_state(tmp_pat
     assert status_payload["servers"][0]["name"] == "filesystem"
     assert status_payload["servers"][0]["connected"] is True
     assert status_payload["servers"][0]["tool_prefix"] == "mcp_filesystem_"
+    assert status_payload["servers"][0]["tool_names"] == [
+        "mcp_filesystem_read_file",
+        "mcp_filesystem_write_file",
+    ]
 
     assert reload_response.status == 200
     assert reload_payload["ok"] is True
     assert reload_payload["message"] == "MCP config reloaded without restarting ZingClaw."
     assert reload_payload["servers"][0]["connected"] is True
+    assert reload_payload["result"]["ok"] is True
+
+    assert reconnect_response.status == 200
+    assert reconnect_payload["ok"] is True
+    assert reconnect_payload["message"] == "MCP reconnect succeeded for filesystem."
+    assert reconnect_payload["servers"][0]["connected"] is True

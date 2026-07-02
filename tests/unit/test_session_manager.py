@@ -7,6 +7,45 @@ from pathlib import Path
 from zingclaw.session import SessionManager, set_goal_state
 
 
+def _assert_no_orphans(history: list[dict]) -> None:
+    declared = {
+        tool_call["id"]
+        for message in history
+        if message.get("role") == "assistant"
+        for tool_call in (message.get("tool_calls") or [])
+        if isinstance(tool_call, dict) and tool_call.get("id")
+    }
+    orphan_ids = [
+        message.get("tool_call_id")
+        for message in history
+        if message.get("role") == "tool" and message.get("tool_call_id") not in declared
+    ]
+    assert orphan_ids == [], f"orphan tool_call_ids: {orphan_ids}"
+
+
+def _tool_turn(prefix: str, idx: int) -> list[dict]:
+    return [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": f"{prefix}_{idx}_a",
+                    "type": "function",
+                    "function": {"name": "x", "arguments": "{}"},
+                },
+                {
+                    "id": f"{prefix}_{idx}_b",
+                    "type": "function",
+                    "function": {"name": "y", "arguments": "{}"},
+                },
+            ],
+        },
+        {"role": "tool", "tool_call_id": f"{prefix}_{idx}_a", "name": "x", "content": "ok"},
+        {"role": "tool", "tool_call_id": f"{prefix}_{idx}_b", "name": "y", "content": "ok"},
+    ]
+
+
 def test_session_manager_round_trip_preserves_messages_and_metadata(tmp_path: Path) -> None:
     manager = SessionManager(tmp_path / "sessions")
     session = manager.get_or_create("cli:default")
@@ -57,11 +96,10 @@ def test_session_get_history_supports_limits_and_timestamp_annotation(tmp_path: 
 
     limited = session.get_history(max_messages=2, include_timestamps=True)
 
-    assert len(limited) == 2
-    assert limited[0]["role"] == "assistant"
-    assert limited[1]["role"] == "user"
-    assert limited[1]["content"].startswith("[Message Time: ")
-    assert limited[1]["content"].endswith("\nsecond")
+    assert len(limited) == 1
+    assert limited[0]["role"] == "user"
+    assert limited[0]["content"].startswith("[Message Time: ")
+    assert limited[0]["content"].endswith("\nsecond")
 
     session.add_message("assistant", "B" * 400)
     session.add_message("user", "tail")
@@ -70,6 +108,23 @@ def test_session_get_history_supports_limits_and_timestamp_annotation(tmp_path: 
     assert len(token_limited) == 1
     assert token_limited[0]["role"] == "user"
     assert token_limited[0]["content"] == "tail"
+
+
+def test_session_get_history_drops_orphan_tool_results_when_window_cuts_tool_calls(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path / "sessions")
+    session = manager.get_or_create("cli:orphan-tools")
+    session.messages.append({"role": "user", "content": "old turn"})
+    for index in range(20):
+        session.messages.extend(_tool_turn("old", index))
+    session.messages.append({"role": "user", "content": "problem turn"})
+    for index in range(25):
+        session.messages.extend(_tool_turn("cur", index))
+    session.messages.append({"role": "user", "content": "latest question"})
+
+    history = session.get_history(max_messages=100)
+
+    _assert_no_orphans(history)
+    assert history[-1]["content"] == "latest question"
 
 
 def test_session_manager_repairs_corrupt_file_and_lists_preview(tmp_path: Path) -> None:
@@ -202,3 +257,77 @@ def test_fork_session_before_user_index_drops_volatile_state_and_keeps_prefix(tm
     assert "thread_goal" not in forked.metadata
     assert "title" not in forked.metadata
     assert "_last_summary" not in forked.metadata
+
+
+def test_session_retain_recent_legal_suffix_returns_dropped_messages_and_adjusts_last_consolidated(
+    tmp_path: Path,
+) -> None:
+    manager = SessionManager(tmp_path / "sessions")
+    session = manager.get_or_create("cli:trim")
+    for index in range(10):
+        session.messages.append({"role": "user", "content": f"msg{index}"})
+    session.last_consolidated = 7
+
+    dropped, already_consolidated = session.retain_recent_legal_suffix(4)
+
+    assert [message["content"] for message in dropped] == [f"msg{index}" for index in range(6)]
+    assert already_consolidated == 6
+    assert [message["content"] for message in session.messages] == ["msg6", "msg7", "msg8", "msg9"]
+    assert session.last_consolidated == 1
+
+
+def test_session_retain_recent_legal_suffix_can_extend_to_user_for_long_recent_turn(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path / "sessions")
+    session = manager.get_or_create("cli:extend")
+    session.messages.append({"role": "user", "content": "old"})
+    session.messages.append({"role": "assistant", "content": "old answer"})
+    session.messages.append({"role": "user", "content": "record this"})
+    for index in range(4):
+        session.messages.extend(_tool_turn("recent", index))
+    session.messages.append({"role": "assistant", "content": "done"})
+
+    dropped, _ = session.retain_recent_legal_suffix(8, extend_to_user=True)
+
+    assert dropped
+    assert len(session.messages) > 8
+    assert session.messages[0]["content"] == "record this"
+    assert session.messages[-1]["content"] == "done"
+    _assert_no_orphans(session.get_history(max_messages=500))
+
+
+def test_session_enforce_file_cap_archives_only_unconsolidated_dropped_prefix(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path / "sessions")
+    session = manager.get_or_create("cli:file-cap")
+    for index in range(10):
+        session.messages.append({"role": "user", "content": f"u{index}"})
+    for index in range(10):
+        session.messages.append({"role": "assistant", "content": f"a{index}"})
+    session.last_consolidated = 8
+
+    archived: list[list[dict]] = []
+    session.enforce_file_cap(lambda messages: archived.append(list(messages)), limit=4)
+
+    assert len(session.messages) == 4
+    assert [message["content"] for message in session.messages] == ["u9", "a0", "a1", "a2"]
+    assert session.last_consolidated == 0
+    assert len(archived) == 1
+    assert [message["content"] for message in archived[0]] == ["u8", "a3", "a4", "a5", "a6", "a7", "a8", "a9"]
+
+
+def test_session_retain_recent_legal_suffix_recomputes_last_consolidated_from_retained_membership(
+    tmp_path: Path,
+) -> None:
+    manager = SessionManager(tmp_path / "sessions")
+    session = manager.get_or_create("cli:last-consolidated")
+    for index in range(10):
+        session.messages.append({"role": "user", "content": f"u{index}"})
+    for index in range(10):
+        session.messages.append({"role": "assistant", "content": f"a{index}"})
+    session.last_consolidated = 12
+
+    dropped, already_consolidated = session.retain_recent_legal_suffix(4)
+
+    assert [message["content"] for message in session.messages] == ["u9", "a0", "a1", "a2"]
+    assert session.last_consolidated == 3
+    assert already_consolidated == 9
+    assert [message["content"] for message in dropped[:3]] == ["u0", "u1", "u2"]

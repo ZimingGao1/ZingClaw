@@ -323,6 +323,12 @@ def _print_mcp_status_table(
         for item in statuses:
             if item.capabilities:
                 console.print(f"[cyan]{item.name}[/cyan] capabilities: {', '.join(item.capabilities)}")
+            if item.tool_names:
+                console.print(f"[cyan]{item.name}[/cyan] tools: {', '.join(item.tool_names)}")
+            if item.resource_names:
+                console.print(f"[cyan]{item.name}[/cyan] resources: {', '.join(item.resource_names)}")
+            if item.prompt_names:
+                console.print(f"[cyan]{item.name}[/cyan] prompts: {', '.join(item.prompt_names)}")
 
 
 def _print_mcp_reload_result(result: dict[str, Any]) -> None:
@@ -423,6 +429,21 @@ def mcp_reload() -> None:
         _print_mcp_reload_result(result)
         statuses = asyncio.run(loop.get_mcp_status(connect_missing=False))
         _print_mcp_status_table(statuses, title="MCP Status After Reload", verbose=True)
+    finally:
+        loop.close()
+
+
+@mcp_app.command("reconnect")
+def mcp_reconnect(server: str = typer.Argument("", help="Optional MCP server name.")) -> None:
+    """Reconnect one MCP server or all configured servers without reloading config."""
+    settings = get_settings()
+    ensure_runtime_dirs(settings)
+    loop = AgentLoop.from_settings(settings)
+    try:
+        result = asyncio.run(loop.reconnect_mcp(server.strip() or None))
+        _print_mcp_reload_result(result)
+        statuses = asyncio.run(loop.get_mcp_status(connect_missing=False))
+        _print_mcp_status_table(statuses, title="MCP Status After Reconnect", verbose=True)
     finally:
         loop.close()
 

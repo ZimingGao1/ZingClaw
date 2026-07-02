@@ -190,3 +190,11 @@ def test_write_stdin_reports_missing_session() -> None:
     result = asyncio.run(tool.execute(session_id="missing", chars=""))
 
     assert "exec session not found" in result
+
+
+def test_write_stdin_reports_blank_session_id() -> None:
+    tool = WriteStdinTool(manager=ExecSessionManager())
+
+    result = asyncio.run(tool.execute(session_id="   ", chars=""))
+
+    assert result == "Error: session_id is required"

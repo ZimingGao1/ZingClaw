@@ -63,6 +63,7 @@ def test_tool_loader_discovers_builtin_tool_classes() -> None:
         "ListDirTool",
         "LongTaskTool",
         "ListSubagentsTool",
+        "SaveMemoryTool",
         "ReadFileTool",
         "WriteFileTool",
         "EditFileTool",

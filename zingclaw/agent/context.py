@@ -18,7 +18,7 @@ from zingclaw.config import Settings
 from zingclaw.memory import MemoryStore
 from zingclaw.session import Session, SessionManager, goal_state_runtime_lines
 from zingclaw.tools import ToolRegistry
-from zingclaw.utils import render_template
+from zingclaw.utils import load_bundled_template, render_template
 
 _DEFAULT_HISTORY_MESSAGES = 120
 _DEFAULT_RECENT_ARCHIVE_ENTRIES = 6
@@ -81,6 +81,7 @@ class ContextBuilder:
         self.skills = SkillsLoader(
             self.workspace,
             skills_dir=settings.skills_dir,
+            enabled_skills=set(settings.agent.enabled_skills),
             disabled_skills=set(settings.agent.disabled_skills),
         )
 
@@ -113,6 +114,7 @@ class ContextBuilder:
             archived_history = (
                 self.memory.render_recent_history_section(
                     session_key=session_key,
+                    since_cursor=self.memory.get_last_dream_cursor(),
                     limit=_DEFAULT_RECENT_ARCHIVE_ENTRIES,
                     max_chars=_DEFAULT_RECENT_ARCHIVE_CHARS,
                 )
@@ -304,6 +306,8 @@ class ContextBuilder:
         parts: list[str] = []
         roots = self._bootstrap_roots(workspace or self.workspace)
         for filename in self.BOOTSTRAP_FILES:
+            bundled = load_bundled_template(filename)
+            loaded = False
             for root in roots:
                 path = root / filename
                 if not path.exists() or not path.is_file():
@@ -311,7 +315,12 @@ class ContextBuilder:
                 content = path.read_text(encoding="utf-8").strip()
                 if content:
                     parts.append(f"## {filename}\n\n{content}")
+                    loaded = True
                     break
+            if loaded:
+                continue
+            if bundled and bundled.strip():
+                parts.append(f"## {filename}\n\n{bundled.strip()}")
         return "\n\n".join(parts)
 
     def _bootstrap_roots(self, workspace: Path) -> list[Path]:

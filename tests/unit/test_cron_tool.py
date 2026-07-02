@@ -138,3 +138,24 @@ async def test_cron_tool_accepts_cron_expression_and_timezone(tmp_path: Path) ->
     assert listing["jobs"][0]["schedule"]["expr"] == "0 9 * * *"
     assert listing["jobs"][0]["schedule"]["tz"] == "UTC"
     assert listing["jobs"][0]["state"]["next_run_at_ms"] is not None
+
+
+@pytest.mark.asyncio
+async def test_cron_tool_rejects_blank_message_for_add(tmp_path: Path) -> None:
+    sessions = SessionManager(tmp_path / "sessions")
+    service = CronService(
+        tmp_path / "workspace" / "cron" / "jobs.json",
+        sessions,
+        default_timezone="UTC",
+        poll_interval_s=0.05,
+    )
+    tool = CronTool(service, default_timezone="UTC")
+    token = tool.set_context(RequestContext(session_key="cli:demo", channel="cli", chat_id="demo"))
+
+    try:
+        result = await tool.execute(action="add", message="   ", every_seconds=60)
+    finally:
+        tool.reset_context(token)
+        service.stop()
+
+    assert result == "Error: message is required when action='add'"

@@ -16,6 +16,7 @@ from typing import Any, Sequence
 logger = logging.getLogger(__name__)
 
 _DEFAULT_HISTORY_MESSAGES = 120
+_FILE_MAX_MESSAGES = 2_000
 _PREVIEW_MAX_CHARS = 120
 _INVALID_FILENAME_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -76,6 +77,48 @@ def _estimate_message_tokens(message: dict[str, Any]) -> int:
     except TypeError:
         payload = str(message)
     return max(1, len(payload) // 4)
+
+
+def _recent_message_start_index(
+    messages: list[dict[str, Any]],
+    max_messages: int,
+    *,
+    extend_to_user: bool = False,
+) -> int:
+    if max_messages <= 0:
+        return 0
+    start_idx = max(0, len(messages) - max_messages)
+    if not extend_to_user or len(messages) <= max_messages:
+        return start_idx
+    if any(messages[index].get("role") == "user" for index in range(start_idx, len(messages))):
+        return start_idx
+
+    recovered_user = next(
+        (index for index in range(start_idx - 1, -1, -1) if messages[index].get("role") == "user"),
+        None,
+    )
+    if recovered_user is None:
+        return start_idx
+    if recovered_user > 0 and messages[recovered_user - 1].get("_channel_delivery"):
+        return recovered_user - 1
+    return recovered_user
+
+
+def _find_legal_message_start(messages: list[dict[str, Any]]) -> int:
+    declared: set[str] = set()
+    start = 0
+    for index, message in enumerate(messages):
+        role = message.get("role")
+        if role == "assistant":
+            for tool_call in message.get("tool_calls") or []:
+                if isinstance(tool_call, dict) and tool_call.get("id"):
+                    declared.add(str(tool_call["id"]))
+        elif role == "tool":
+            tool_call_id = message.get("tool_call_id")
+            if tool_call_id and str(tool_call_id) not in declared:
+                start = index + 1
+                declared.clear()
+    return start
 
 
 def _metadata_title(metadata: Any) -> str:
@@ -280,11 +323,15 @@ class Session:
         next_eligible_at: datetime | None = None,
     ) -> None:
         at = compacted_at or datetime.now()
+        previous_last_active = self.metadata.get(_LAST_ACTIVE_AT_KEY)
+        if not isinstance(previous_last_active, str) or not previous_last_active.strip():
+            previous_last_active = self.updated_at.isoformat()
         text = summary.strip()
         self.metadata[_LAST_SUMMARY_KEY] = {
             "text": text,
             "compacted_at": at.isoformat(),
             "trigger": trigger,
+            "last_active": previous_last_active,
         }
         self.metadata[_LAST_COMPACTED_AT_KEY] = at.isoformat()
         if next_eligible_at is None:
@@ -309,13 +356,24 @@ class Session:
         if max_messages <= 0:
             sliced = list(unconsolidated)
         else:
-            start = max(0, len(unconsolidated) - max_messages)
-            if extend_to_user:
-                for index in range(start, -1, -1):
-                    if unconsolidated[index].get("role") == "user":
-                        start = index
-                        break
+            start = _recent_message_start_index(
+                unconsolidated,
+                max_messages,
+                extend_to_user=extend_to_user,
+            )
             sliced = unconsolidated[start:]
+
+        for index, message in enumerate(sliced):
+            if message.get("role") == "user":
+                start = index
+                if index > 0 and sliced[index - 1].get("_channel_delivery"):
+                    start = index - 1
+                sliced = sliced[start:]
+                break
+
+        legal_start = _find_legal_message_start(sliced)
+        if legal_start:
+            sliced = sliced[legal_start:]
 
         history: list[dict[str, Any]] = []
         for message in sliced:
@@ -353,7 +411,23 @@ class Session:
                     break
                 kept.append(message)
                 used += tokens
-            history = list(reversed(kept))
+            kept.reverse()
+
+            first_user = next((index for index, message in enumerate(kept) if message.get("role") == "user"), None)
+            if first_user is not None:
+                kept = kept[first_user:]
+            else:
+                recovered_user = next(
+                    (index for index in range(len(history) - 1, -1, -1) if history[index].get("role") == "user"),
+                    None,
+                )
+                if recovered_user is not None:
+                    kept = history[recovered_user:]
+
+            legal_start = _find_legal_message_start(kept)
+            if legal_start:
+                kept = kept[legal_start:]
+            history = kept
 
         return history
 
@@ -364,6 +438,100 @@ class Session:
         self.metadata.pop(_LAST_SUMMARY_KEY, None)
         self.clear_pending_user_turn()
         self.touch()
+
+    def retain_recent_legal_suffix(
+        self,
+        max_messages: int,
+        *,
+        extend_to_user: bool = False,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Trim the session to a recent legal suffix.
+
+        Returns ``(dropped_messages, already_consolidated_count)`` so callers
+        can archive only the unconsolidated portion of the dropped prefix.
+        """
+        if max_messages <= 0:
+            dropped = list(self.messages)
+            already_consolidated = min(self.last_consolidated, len(dropped))
+            self.clear()
+            return dropped, already_consolidated
+
+        if len(self.messages) <= max_messages:
+            return [], 0
+
+        original = list(self.messages)
+        before_last_consolidated = self.last_consolidated
+
+        start_idx = max(0, len(self.messages) - max_messages)
+        if extend_to_user:
+            start_idx = next(
+                (
+                    index
+                    for index in range(start_idx, -1, -1)
+                    if self.messages[index].get("role") == "user"
+                ),
+                start_idx,
+            )
+
+        retained = self.messages[start_idx:]
+
+        first_user = next((index for index, message in enumerate(retained) if message.get("role") == "user"), None)
+        if first_user is not None:
+            retained = retained[first_user:]
+        elif not extend_to_user:
+            latest_user = next(
+                (index for index in range(len(self.messages) - 1, -1, -1) if self.messages[index].get("role") == "user"),
+                None,
+            )
+            if latest_user is not None:
+                retained = self.messages[latest_user : latest_user + max_messages]
+
+        legal_start = _find_legal_message_start(retained)
+        if legal_start:
+            retained = retained[legal_start:]
+
+        if not extend_to_user and len(retained) > max_messages:
+            retained = retained[-max_messages:]
+            legal_start = _find_legal_message_start(retained)
+            if legal_start:
+                retained = retained[legal_start:]
+
+        retained_ids = {id(message) for message in retained}
+        dropped = [message for message in original if id(message) not in retained_ids]
+
+        already_consolidated = sum(
+            1
+            for index, message in enumerate(original)
+            if index < before_last_consolidated and id(message) not in retained_ids
+        )
+        new_last_consolidated = sum(
+            1
+            for index, message in enumerate(original)
+            if index < before_last_consolidated and id(message) in retained_ids
+        )
+
+        self.messages = retained
+        self.last_consolidated = new_last_consolidated
+        self.touch()
+        return dropped, already_consolidated
+
+    def enforce_file_cap(
+        self,
+        on_archive: Any = None,
+        *,
+        limit: int = _FILE_MAX_MESSAGES,
+    ) -> None:
+        """Bound session file growth while preserving a recent legal suffix."""
+        if limit <= 0 or len(self.messages) <= limit:
+            return
+
+        dropped, already_consolidated = self.retain_recent_legal_suffix(limit)
+        if not dropped:
+            return
+
+        archive_chunk = dropped[already_consolidated:]
+        if archive_chunk and callable(on_archive):
+            on_archive(archive_chunk)
 
 
 class SessionManager:

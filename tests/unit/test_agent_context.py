@@ -71,16 +71,46 @@ def test_build_system_prompt_includes_identity_bootstrap_and_tools(tmp_path: Pat
     assert "Available Tools" not in prompt
 
 
+def test_build_system_prompt_loads_all_bootstrap_files_from_workspace(tmp_path: Path) -> None:
+    builder = _make_builder(tmp_path)
+    builder.workspace.mkdir(parents=True, exist_ok=True)
+    (builder.workspace / "AGENTS.md").write_text("workspace agents", encoding="utf-8")
+    (builder.workspace / "SOUL.md").write_text("workspace soul", encoding="utf-8")
+    (builder.workspace / "USER.md").write_text("workspace user", encoding="utf-8")
+
+    prompt = builder.build_system_prompt(session_key="cli:default", channel="cli")
+
+    assert "## AGENTS.md" in prompt
+    assert "workspace agents" in prompt
+    assert "## SOUL.md" in prompt
+    assert "workspace soul" in prompt
+    assert "## USER.md" in prompt
+    assert "workspace user" in prompt
+
+
+def test_build_system_prompt_falls_back_to_bundled_bootstrap_templates(tmp_path: Path) -> None:
+    builder = _make_builder(tmp_path)
+    builder.workspace.mkdir(parents=True, exist_ok=True)
+
+    prompt = builder.build_system_prompt(session_key="cli:default", channel="cli")
+
+    assert "## AGENTS.md" in prompt
+    assert "Workspace Guidance" in prompt
+    assert "## SOUL.md" in prompt
+    assert "I am ZingClaw, a local coding agent" in prompt
+    assert "## USER.md" in prompt
+    assert "Use this file for stable user preferences" in prompt
+
+
 def test_load_bootstrap_files_prefers_workspace_before_home(tmp_path: Path) -> None:
     builder = _make_builder(tmp_path)
     builder.workspace.mkdir(parents=True, exist_ok=True)
-    (tmp_path / "AGENTS.md").write_text("home instructions", encoding="utf-8")
     (builder.workspace / "AGENTS.md").write_text("workspace instructions", encoding="utf-8")
 
     bootstrap = builder._load_bootstrap_files(builder.workspace)
 
     assert "workspace instructions" in bootstrap
-    assert "home instructions" not in bootstrap
+    assert "Workspace Guidance" not in bootstrap
 
 
 def test_build_messages_merges_same_role_history_and_appends_runtime_context(tmp_path: Path) -> None:
@@ -246,4 +276,45 @@ def test_build_system_prompt_respects_disabled_skills(tmp_path: Path) -> None:
 
     assert "# Active Skills" not in prompt
     assert "### Skill: memory" not in prompt
+    assert "- **zoom** -" not in prompt
+
+
+def test_build_system_prompt_loads_configured_skill_summary(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, home_dir=tmp_path)
+    sessions = SessionManager(settings.sessions_dir)
+    builder = ContextBuilder(settings, sessions)
+    builder.workspace.mkdir(parents=True, exist_ok=True)
+
+    configured_skill_dir = builder.settings.skills_dir / "design-thinking"
+    configured_skill_dir.mkdir(parents=True, exist_ok=True)
+    (configured_skill_dir / "SKILL.md").write_text(
+        "---\ndescription: Clarify fuzzy requirements before coding.\n---\n\n# Design Thinking\n\nUse when requirements are ambiguous.",
+        encoding="utf-8",
+    )
+
+    prompt = builder.build_system_prompt(session_key="cli:default", channel="cli")
+
+    assert "- **design-thinking** - Clarify fuzzy requirements before coding. [configured]" in prompt
+
+
+def test_build_system_prompt_respects_enabled_skills_whitelist(tmp_path: Path) -> None:
+    settings = Settings(
+        _env_file=None,
+        home_dir=tmp_path,
+        agent={"enabled_skills": ["memory"]},
+    )
+    sessions = SessionManager(settings.sessions_dir)
+    builder = ContextBuilder(settings, sessions)
+    builder.workspace.mkdir(parents=True, exist_ok=True)
+
+    skill_dir = builder.settings.skills_dir / "zoom"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        "# Zoom\n\nUse this skill when the agent should work with meeting links.",
+        encoding="utf-8",
+    )
+
+    prompt = builder.build_system_prompt(session_key="cli:default", channel="cli")
+
+    assert "### Skill: memory" in prompt
     assert "- **zoom** -" not in prompt

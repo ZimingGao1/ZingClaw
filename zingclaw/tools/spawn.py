@@ -98,7 +98,10 @@ class SpawnTool(Tool, _SpawnContextMixin):
         del kwargs
         request_ctx = self._current_request_context()
         if request_ctx is None or not request_ctx.session_key:
-            return "Error: spawn requires an active session context."
+            return self.error("spawn requires an active session context.")
+        task = str(task).strip()
+        if not task:
+            return self.error("task must not be empty")
         return await self._manager.spawn(
             task=task,
             label=label,

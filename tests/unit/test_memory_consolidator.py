@@ -60,9 +60,51 @@ async def test_consolidator_archives_old_session_messages_into_history(tmp_path:
     summary = await consolidator.maybe_consolidate(session)
     refreshed = sessions.get_or_create("cli:demo")
     entries = store.read_history_entries(session_key="cli:demo")
+    history_markdown = store.history_markdown_file.read_text(encoding="utf-8")
 
     assert summary == "- summarized archived turns"
     assert refreshed.last_consolidated > 0
     assert refreshed.metadata["_last_summary"]["text"] == "- summarized archived turns"
     assert entries[-1]["content"] == "- summarized archived turns"
+    assert "- summarized archived turns" in history_markdown
+    assert "USER: user message 0" in provider.requests[0][1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_consolidator_compacts_idle_session_to_recent_legal_suffix(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory", max_history_entries=20)
+    sessions = SessionManager(tmp_path / "sessions")
+    session = sessions.get_or_create("cli:demo")
+    for idx in range(6):
+        session.add_message("user", f"user message {idx}")
+        session.add_message("assistant", f"assistant reply {idx}")
+    sessions.save(session)
+
+    provider = SummaryProvider([LLMResponse(content="- idle compacted summary", finish_reason="stop")])
+    consolidator = Consolidator(
+        store,
+        provider,
+        model="summary-model",
+        sessions=sessions,
+        consolidation_threshold=50,
+        recent_keep_messages=2,
+        prompt_token_budget=999_999,
+    )
+
+    summary = await consolidator.compact_idle_session("cli:demo", max_suffix=4)
+    refreshed = sessions.get_or_create("cli:demo")
+    entries = store.read_history_entries(session_key="cli:demo")
+    history_markdown = store.history_markdown_file.read_text(encoding="utf-8")
+
+    assert summary == "- idle compacted summary"
+    assert [message["content"] for message in refreshed.messages] == [
+        "user message 4",
+        "assistant reply 4",
+        "user message 5",
+        "assistant reply 5",
+    ]
+    assert refreshed.last_consolidated == 0
+    assert refreshed.metadata["_last_summary"]["text"] == "- idle compacted summary"
+    assert entries[-1]["content"] == "- idle compacted summary"
+    assert "- idle compacted summary" in history_markdown
     assert "USER: user message 0" in provider.requests[0][1]["content"]

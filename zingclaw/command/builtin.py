@@ -20,6 +20,7 @@ BUILTIN_COMMAND_SPECS: tuple[BuiltinCommandSpec, ...] = (
     BuiltinCommandSpec("/clear", "Clear the current session history."),
     BuiltinCommandSpec("/mcp", "Show MCP runtime status."),
     BuiltinCommandSpec("/mcp reload", "Reload MCP config and reconnect servers."),
+    BuiltinCommandSpec("/mcp reconnect", "Reconnect MCP servers without reloading config."),
 )
 
 
@@ -54,6 +55,15 @@ def format_mcp_status_text(statuses: list[object]) -> str:
         error = getattr(item, "error", None)
         if error:
             lines.append(f"  error: {error}")
+        tool_names = list(getattr(item, "tool_names", []) or [])
+        resource_names = list(getattr(item, "resource_names", []) or [])
+        prompt_names = list(getattr(item, "prompt_names", []) or [])
+        if tool_names:
+            lines.append("  tools: " + ", ".join(tool_names))
+        if resource_names:
+            lines.append("  resources: " + ", ".join(resource_names))
+        if prompt_names:
+            lines.append("  prompts: " + ", ".join(prompt_names))
     return "\n".join(lines)
 
 
@@ -88,6 +98,14 @@ async def cmd_mcp_reload(ctx: CommandContext):
     return ctx.reply(text + "\n\n" + format_mcp_status_text(statuses))
 
 
+async def cmd_mcp_reconnect(ctx: CommandContext):
+    server_name = (ctx.args or "").strip() or None
+    result = await ctx.loop.reconnect_mcp(server_name)
+    statuses = await ctx.loop.get_mcp_status(connect_missing=False)
+    text = str(result.get("message") or "MCP reconnect finished.")
+    return ctx.reply(text + "\n\n" + format_mcp_status_text(statuses))
+
+
 def register_builtin_commands(router: CommandRouter) -> None:
     """Register the default chat slash commands."""
 
@@ -97,3 +115,4 @@ def register_builtin_commands(router: CommandRouter) -> None:
     router.exact("/clear", cmd_clear)
     router.exact("/mcp", cmd_mcp_status)
     router.exact("/mcp reload", cmd_mcp_reload)
+    router.prefix("/mcp reconnect", cmd_mcp_reconnect)

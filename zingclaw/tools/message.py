@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from zingclaw.bus import OutboundMessage
 from zingclaw.security import WorkspaceAccessPolicy
@@ -134,13 +135,13 @@ class MessageTool(Tool, _MessageToolMixin):
         target_channel = (channel or default_channel or "").strip()
         target_chat_id = (chat_id or default_chat_id or "").strip()
         if not target_channel or not target_chat_id:
-            return "Error: No target channel/chat specified"
+            return self.error("No target channel/chat specified")
         if self._send_callback is None:
-            return "Error: Message sending not configured"
+            return self.error("Message sending not configured")
 
         text = str(content or "").strip()
         if not text:
-            return "Error: content must not be empty"
+            return self.error("content must not be empty")
 
         current_message_id = None
         if request_ctx is not None:
@@ -154,7 +155,7 @@ class MessageTool(Tool, _MessageToolMixin):
         try:
             attachments = self._resolve_attachments(media or [])
         except Exception as exc:
-            return f"Error: media path is not allowed: {exc}"
+            return self.error(f"media path is not allowed: {exc}")
 
         outbound = OutboundMessage(
             channel=target_channel,
@@ -172,7 +173,7 @@ class MessageTool(Tool, _MessageToolMixin):
         await self._send_callback(outbound)
 
         attachment_note = f" with {len(attachments)} attachment(s)" if attachments else ""
-        return f"Message sent to {target_channel}:{target_chat_id}{attachment_note}"
+        return self.ok(f"Message sent to {target_channel}:{target_chat_id}{attachment_note}")
 
     def _resolve_attachments(self, media: list[str]) -> list[dict[str, str]]:
         attachments: list[dict[str, str]] = []
@@ -183,6 +184,9 @@ class MessageTool(Tool, _MessageToolMixin):
             if value.startswith(("http://", "https://")):
                 attachments.append({"type": "url", "url": value})
                 continue
+            if "://" in value:
+                parsed = urlparse(value)
+                raise ValueError(f"unsupported media URL scheme: {parsed.scheme or 'unknown'}")
             path = self._access.resolve_path(value)
             attachments.append({"type": "file", "path": str(path)})
         return attachments
