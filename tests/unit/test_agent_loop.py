@@ -87,7 +87,13 @@ async def test_agent_loop_processes_one_turn_and_persists_tool_cycle(tmp_path) -
         session_key="cli:default",
         channel="cli",
         chat_id="default",
-        metadata={"sender_id": "user-1"},
+        metadata={
+            "sender_id": "user-1",
+            "origin": "unit-test",
+            "trace_question_id": "should_not_persist",
+            "trace_question_tags": ["trace"],
+            "_wants_stream": True,
+        },
     )
 
     session = loop.sessions.get_or_create("cli:default")
@@ -106,6 +112,10 @@ async def test_agent_loop_processes_one_turn_and_persists_tool_cycle(tmp_path) -
     ]
     assert session.messages[0]["content"] == "run it"
     assert session.messages[0]["sender_id"] == "user-1"
+    assert session.messages[0]["origin"] == "unit-test"
+    assert "trace_question_id" not in session.messages[0]
+    assert "trace_question_tags" not in session.messages[0]
+    assert "_wants_stream" not in session.messages[0]
     assert session.messages[1]["tool_calls"][0]["function"]["name"] == "echo_tool"
     assert session.messages[2]["tool_call_id"] == "call_1"
     assert session.messages[2]["content"] == '{"echo": "ping"}'

@@ -1,0 +1,12 @@
+{"seq": 1, "timestamp": "2026-07-03T09:09:57.352152+00:00", "elapsed_ms": 0, "type": "user_input", "input": "运行 python --version，并告诉我结果。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T09:09:57.352152+00:00", "elapsed_ms": 0, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T09:09:57.352152+00:00", "elapsed_ms": 1, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T09:09:57.396937+00:00", "elapsed_ms": 46, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T09:09:57.398302+00:00", "elapsed_ms": 46, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T09:09:59.384132+00:00", "elapsed_ms": 2032, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T09:09:59.384132+00:00", "elapsed_ms": 2032, "type": "tool_started", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec_5", "arguments": {"command": "python --version"}}
+{"seq": 8, "timestamp": "2026-07-03T09:09:59.409400+00:00", "elapsed_ms": 2058, "type": "tool_completed", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec_5", "result_preview": "Python 3.12.7\r\n\n\nExit code: 0", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T09:09:59.410400+00:00", "elapsed_ms": 2058, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T09:10:00.846245+00:00", "elapsed_ms": 3494, "type": "status", "status": "completed"}
+{"seq": 11, "timestamp": "2026-07-03T09:10:00.847756+00:00", "elapsed_ms": 3495, "type": "turn_completed", "stop_reason": "completed", "final_content": "**Python 3.12.7**", "tools_used": ["exec"], "usage": {}, "error": null, "latency_ms": 3496}
+{"seq": 12, "timestamp": "2026-07-03T09:10:00.847756+00:00", "elapsed_ms": 3496, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["exec"], "usage": {}}

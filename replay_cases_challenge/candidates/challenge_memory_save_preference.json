@@ -1,0 +1,39 @@
+{
+  "name": "challenge_memory_save_preference",
+  "input": "请记住一个临时评测偏好：我希望 ZingClaw 的评测说明优先给出可复现命令，再解释原理。保存后告诉我你保存了什么。",
+  "category": "memory",
+  "tags": [
+    "candidate",
+    "memory",
+    "uses_tools",
+    "tool:save_memory",
+    "stateful"
+  ],
+  "purpose": "Protect memory behavior for: 请记住一个临时评测偏好：我希望 ZingClaw 的评测说明优先给出可复现命令，再解释原理。保存后告诉我你保存了什么。",
+  "stability": "candidate",
+  "session_key": "eval:challenge_memory_save_preference",
+  "channel": "eval",
+  "chat_id": "eval:challenge_memory_save_preference",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "save_memory"
+  ],
+  "forbidden_tools": [],
+  "allowed_extra_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [],
+  "expected_files_written": [],
+  "expected_artifacts": [],
+  "expected_answer_contains": [],
+  "expected_safety_blocks": null,
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "disallow_unexpected_dangerous_tools": true,
+  "source_trace_id": "20260704T063314-26f60de6",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  }
+}

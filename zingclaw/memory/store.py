@@ -9,6 +9,7 @@ import os
 import threading
 from contextlib import suppress
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ _RAW_ARCHIVE_MAX_CHARS = 16_000
 _ARCHIVE_SUMMARY_MAX_CHARS = 8_000
 _RECENT_HISTORY_PROMPT_ENTRIES = 5
 _RECENT_HISTORY_PROMPT_CHARS = 2_500
+_DREAM_HISTORY_ENTRY_CHARS = 1_000
 _MIN_PROMPT_TOKEN_BUDGET = 2_000
 
 
@@ -183,6 +185,47 @@ class MemoryStore:
 
     def set_last_dream_cursor(self, cursor: int) -> None:
         self.dream_cursor_file.write_text(str(max(0, int(cursor))), encoding="utf-8")
+
+    def build_dream_prompt(self, *, max_entries: int = 20) -> tuple[str, int, int] | None:
+        """Build a prompt that asks an LLM to extract durable memory from archived history.
+
+        Returns ``(prompt, last_cursor, entry_count)`` or ``None`` when every
+        archived history entry has already been processed by Dream.
+        """
+        last_cursor = self.get_last_dream_cursor()
+        entries = self.read_unprocessed_history(since_cursor=last_cursor)
+        if not entries:
+            return None
+
+        batch = entries[: max(1, int(max_entries))]
+        history_text = "\n\n".join(
+            self._format_dream_history_entry(entry) for entry in batch
+        )
+        prompt = (
+            "You are ZingClaw's long-term memory consolidation engine.\n"
+            "Read the archived conversation summaries below and extract only durable, useful memory.\n\n"
+            "Write concise bullet points for facts that should remain useful across future sessions:\n"
+            "- user preferences\n"
+            "- stable project facts\n"
+            "- important decisions\n"
+            "- recurring constraints or safety requirements\n"
+            "- lessons learned from previous work\n\n"
+            "Ignore one-off chatter, temporary command output, and details that are only useful inside one turn.\n"
+            "If there is nothing worth preserving, reply exactly: (nothing)\n\n"
+            "## Archived History\n"
+            f"{history_text}"
+        )
+        cursor = self._valid_cursor(batch[-1].get("cursor")) or last_cursor
+        return prompt, cursor, len(batch)
+
+    @staticmethod
+    def _format_dream_history_entry(entry: dict[str, Any]) -> str:
+        cursor = entry.get("cursor")
+        timestamp = str(entry.get("timestamp") or "unknown time")
+        session_key = str(entry.get("session_key") or "").strip()
+        content = _truncate_text(str(entry.get("content") or "").strip(), _DREAM_HISTORY_ENTRY_CHARS)
+        session_line = f"\nSession: {session_key}" if session_key else ""
+        return f"### Cursor {cursor} [{timestamp}]{session_line}\n{content}"
 
     def append_history(
         self,
@@ -521,6 +564,7 @@ class Consolidator:
             self.sessions.save(session)
             return summary
 
+
     async def compact_idle_session(
         self,
         session_key: str,
@@ -569,3 +613,77 @@ class Consolidator:
             session.last_consolidated = 0
             self.sessions.save(session)
             return summary
+
+
+@dataclass(slots=True)
+class DreamResult:
+    """Outcome of one Dream long-term memory extraction run."""
+
+    processed_entries: int
+    last_cursor: int
+    memory_updated: bool
+    content: str = ""
+
+
+class DreamConsolidator:
+    """Extract durable long-term memory from archived history entries."""
+
+    def __init__(
+        self,
+        store: MemoryStore,
+        provider: LLMProvider,
+        *,
+        model: str,
+        max_entries: int = 20,
+    ) -> None:
+        self.store = store
+        self.provider = provider
+        self.model = model
+        self.max_entries = max(1, int(max_entries))
+
+    async def run_once(self) -> DreamResult:
+        """Process one batch of archived history into ``MEMORY.md``."""
+        built = self.store.build_dream_prompt(max_entries=self.max_entries)
+        if built is None:
+            return DreamResult(
+                processed_entries=0,
+                last_cursor=self.store.get_last_dream_cursor(),
+                memory_updated=False,
+                content="",
+            )
+
+        prompt, last_cursor, entry_count = built
+        response = await self.provider.chat_with_retry(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You update durable long-term memory. Reply with concise bullet points only, "
+                        "or exactly '(nothing)' if nothing should be kept."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            tools=None,
+            tool_choice=None,
+            max_tokens=min(1024, self.provider.generation.max_tokens),
+            temperature=0.2,
+            reasoning_effort=None,
+        )
+        if response.finish_reason == "error":
+            raise RuntimeError(response.content or "Dream memory extraction failed")
+
+        content = (response.content or "").strip()
+        memory_updated = bool(content and content != "(nothing)")
+        if memory_updated:
+            self.store.save_memory(
+                f"Dream update from archived history through cursor {last_cursor}:\n{content}"
+            )
+        self.store.set_last_dream_cursor(last_cursor)
+        return DreamResult(
+            processed_entries=entry_count,
+            last_cursor=last_cursor,
+            memory_updated=memory_updated,
+            content=content,
+        )

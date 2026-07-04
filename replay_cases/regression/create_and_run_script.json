@@ -1,0 +1,39 @@
+{
+  "name": "create_and_run_script",
+  "input": "创建 trace_demo/run_me.py，让它输出 hello trace，然后运行它并总结结果。",
+  "session_key": "eval:create_and_run_script",
+  "channel": "eval",
+  "chat_id": "eval:create_and_run_script",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "write_file",
+    "exec"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [
+    "python trace_demo/run_me.py"
+  ],
+  "expected_files_touched": [
+    "trace_demo/run_me.py"
+  ],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144539-4fc7ecdc",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "shell",
+  "purpose": "Protect shell behavior for: 创建 trace_demo/run_me.py，让它输出 hello trace，然后运行它并总结结果。",
+  "stability": "stable",
+  "tags": [
+    "regression",
+    "shell",
+    "uses_tools",
+    "tool:exec",
+    "tool:write_file",
+    "writes_files"
+  ]
+}

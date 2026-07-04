@@ -1,0 +1,44 @@
+{
+  "name": "challenge_read_then_run",
+  "input": "先读取 trace_demo/run_me.py 的内容，再运行它，最后同时说明代码内容和运行输出是否一致。",
+  "category": "shell",
+  "tags": [
+    "regression",
+    "shell",
+    "uses_tools",
+    "tool:exec",
+    "tool:read_file"
+  ],
+  "purpose": "Protect shell behavior for: 先读取 trace_demo/run_me.py 的内容，再运行它，最后同时说明代码内容和运行输出是否一致。",
+  "stability": "stable",
+  "session_key": "eval:challenge_read_then_run",
+  "channel": "eval",
+  "chat_id": "eval:challenge_read_then_run",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "read_file",
+    "exec"
+  ],
+  "forbidden_tools": [],
+  "allowed_extra_tools": [],
+  "expected_command_substrings": [
+    "python trace_demo/run_me.py"
+  ],
+  "expected_files_touched": [
+    "trace_demo/run_me.py"
+  ],
+  "expected_files_written": [],
+  "expected_artifacts": [],
+  "expected_answer_contains": [],
+  "expected_safety_blocks": null,
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "disallow_unexpected_dangerous_tools": true,
+  "source_trace_id": "20260704T062928-38d885a3",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  }
+}

@@ -1,0 +1,12 @@
+{"seq": 1, "timestamp": "2026-07-03T08:50:32.428413+00:00", "elapsed_ms": 0, "type": "user_input", "input": "运行 test/hello.py，并告诉我输出是什么。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T08:50:32.429774+00:00", "elapsed_ms": 0, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T08:50:32.429774+00:00", "elapsed_ms": 1, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T08:50:32.472465+00:00", "elapsed_ms": 44, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T08:50:32.473466+00:00", "elapsed_ms": 44, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T08:50:34.499637+00:00", "elapsed_ms": 2070, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T08:50:34.499637+00:00", "elapsed_ms": 2071, "type": "tool_started", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec:2", "arguments": {"command": "python test/hello.py"}}
+{"seq": 8, "timestamp": "2026-07-03T08:50:34.540376+00:00", "elapsed_ms": 2112, "type": "tool_completed", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec:2", "result_preview": "hello world\r\n\n\nExit code: 0", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T08:50:34.541376+00:00", "elapsed_ms": 2112, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T08:50:35.920715+00:00", "elapsed_ms": 3492, "type": "status", "status": "completed"}
+{"seq": 11, "timestamp": "2026-07-03T08:50:35.921726+00:00", "elapsed_ms": 3493, "type": "turn_completed", "stop_reason": "completed", "final_content": "输出是：\n\n```\nhello world\n```", "tools_used": ["exec"], "usage": {}, "error": null, "latency_ms": 3493}
+{"seq": 12, "timestamp": "2026-07-03T08:50:35.921726+00:00", "elapsed_ms": 3493, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["exec"], "usage": {}}

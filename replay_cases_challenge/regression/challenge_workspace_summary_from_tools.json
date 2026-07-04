@@ -1,0 +1,52 @@
+{
+  "name": "challenge_workspace_summary_from_tools",
+  "input": "不要凭记忆回答。请查看当前 workspace 根目录和 test 目录，然后总结有哪些可用的测试或演示文件。",
+  "category": "filesystem",
+  "tags": [
+    "regression",
+    "filesystem",
+    "uses_tools",
+    "tool:list_dir",
+    "tool:read_file",
+    "read_only"
+  ],
+  "purpose": "Protect filesystem behavior for: 不要凭记忆回答。请查看当前 workspace 根目录和 test 目录，然后总结有哪些可用的测试或演示文件。",
+  "stability": "stable",
+  "session_key": "eval:challenge_workspace_summary_from_tools",
+  "channel": "eval",
+  "chat_id": "eval:challenge_workspace_summary_from_tools",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "list_dir",
+    "read_file"
+  ],
+  "forbidden_tools": [],
+  "allowed_extra_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [
+    ".",
+    "test",
+    "challenge",
+    "cron",
+    "trace_demo",
+    "test/hello.py",
+    "challenge/sum_numbers.py",
+    "challenge/e2e_note.md",
+    "trace_demo/run_me.py",
+    "challenge/config.json"
+  ],
+  "expected_files_written": [],
+  "expected_artifacts": [],
+  "expected_answer_contains": [],
+  "expected_safety_blocks": null,
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "disallow_unexpected_dangerous_tools": true,
+  "source_trace_id": "20260704T063207-ea47b4c5",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "trace_id": "20260703T090419-2d8320d1",
+  "created_at": "2026-07-03T09:04:19.753151+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "eval",
+    "chat_id": "eval:list_workspace",
+    "session_key": "eval:list_workspace",
+    "metadata": {}
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "eval:list_workspace",
+  "channel": "eval",
+  "chat_id": "eval:list_workspace",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-03T09:04:30.764136+00:00"
+}

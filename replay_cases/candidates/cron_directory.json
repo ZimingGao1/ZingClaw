@@ -1,0 +1,38 @@
+{
+  "name": "cron_directory",
+  "input": "查看 workspace/cron 目录，说明当前是否有定时任务相关文件。",
+  "session_key": "eval:cron_directory",
+  "channel": "eval",
+  "chat_id": "eval:cron_directory",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "list_dir"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [
+    "workspace/cron",
+    "workspace",
+    "D:/Project/ZingClaw/workspace",
+    "D:/Project/ZingClaw/workspace/cron"
+  ],
+  "allow_tool_errors": true,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144718-20590c7b",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "cron",
+  "purpose": "Protect cron behavior for: 查看 workspace/cron 目录，说明当前是否有定时任务相关文件。",
+  "stability": "candidate",
+  "tags": [
+    "candidate",
+    "cron",
+    "uses_tools",
+    "tool:list_dir",
+    "read_only"
+  ]
+}

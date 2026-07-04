@@ -1,0 +1,38 @@
+{
+  "name": "inspect_then_run",
+  "input": "先查看 test/hello.py，再运行它，最后把代码内容和运行结果一起总结。",
+  "session_key": "eval:inspect_then_run",
+  "channel": "eval",
+  "chat_id": "eval:inspect_then_run",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "read_file",
+    "exec"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [
+    "python test/hello.py"
+  ],
+  "expected_files_touched": [
+    "test/hello.py"
+  ],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144624-b1225d3c",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "shell",
+  "purpose": "Protect shell behavior for: 先查看 test/hello.py，再运行它，最后把代码内容和运行结果一起总结。",
+  "stability": "stable",
+  "tags": [
+    "regression",
+    "shell",
+    "uses_tools",
+    "tool:exec",
+    "tool:read_file"
+  ]
+}

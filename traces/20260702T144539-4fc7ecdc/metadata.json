@@ -1,0 +1,27 @@
+{
+  "trace_id": "20260702T144539-4fc7ecdc",
+  "created_at": "2026-07-02T14:45:39.098284+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "trace",
+    "chat_id": "traceq:create_and_run_script",
+    "session_key": "traceq:create_and_run_script",
+    "metadata": {
+      "trace_question_id": "create_and_run_script",
+      "trace_question_category": "shell",
+      "trace_question_tags": [
+        "writes_workspace",
+        "tool"
+      ],
+      "trace_question_set": "starter-trace-questions"
+    }
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "traceq:create_and_run_script",
+  "channel": "trace",
+  "chat_id": "traceq:create_and_run_script",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-02T14:45:50.253658+00:00"
+}

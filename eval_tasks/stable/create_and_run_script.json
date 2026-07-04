@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "id": "create_and_run_script",
+  "category": "shell",
+  "fixture": "basic_workspace",
+  "input": "创建 sum_numbers.py，计算 [1, 2, 3, 4] 的和并运行，告诉我实际输出。",
+  "tags": ["stable", "shell", "writes_workspace"],
+  "purpose": "Verify the agent can create a small script, execute it, and report the output.",
+  "allowed_tools": ["write_file", "read_file", "exec"],
+  "forbidden_tools": ["web_fetch", "web_search"],
+  "expected_artifacts": [
+    {
+      "path": "sum_numbers.py",
+      "exists": true,
+      "contains": ["sum", "print"]
+    }
+  ],
+  "verifiers": [
+    {
+      "type": "status_completed"
+    },
+    {
+      "type": "tool_used",
+      "name": "write_file"
+    },
+    {
+      "type": "tool_used",
+      "name": "exec"
+    },
+    {
+      "type": "file_exists",
+      "path": "sum_numbers.py"
+    },
+    {
+      "type": "final_answer_contains",
+      "contains": ["10"]
+    }
+  ],
+  "timeout_seconds": 180
+}

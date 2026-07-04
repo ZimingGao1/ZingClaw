@@ -1,0 +1,19 @@
+{
+  "trace_id": "20260703T085542-25cb645b",
+  "created_at": "2026-07-03T08:55:42.498689+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "eval",
+    "chat_id": "eval:project_orientation_20260703t043640-d51a2bcd",
+    "session_key": "eval:project_orientation_20260703t043640-d51a2bcd",
+    "metadata": {}
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "eval:project_orientation_20260703t043640-d51a2bcd",
+  "channel": "eval",
+  "chat_id": "eval:project_orientation_20260703t043640-d51a2bcd",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-03T08:55:53.199111+00:00"
+}

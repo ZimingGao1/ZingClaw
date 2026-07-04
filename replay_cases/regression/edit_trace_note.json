@@ -1,0 +1,45 @@
+{
+  "name": "edit_trace_note",
+  "input": "把 notes/trace_demo.md 里出现的 trace 改成“运行轨迹”，然后说明你修改了什么。",
+  "session_key": "eval:edit_trace_note",
+  "channel": "eval",
+  "chat_id": "eval:edit_trace_note",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "read_file"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [
+    "notes/trace_demo.md"
+  ],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144439-67ca51ad",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "filesystem",
+  "purpose": "Protect trace note normalization: verify notes/trace_demo.md uses 运行轨迹, editing only if needed.",
+  "stability": "stable",
+  "tags": [
+    "regression",
+    "filesystem",
+    "uses_tools",
+    "tool:read_file",
+    "read_or_edit",
+    "read_only",
+    "semantic_assertion"
+  ],
+  "allowed_extra_tools": [
+    "apply_patch",
+    "edit_file",
+    "write_file"
+  ],
+  "expected_answer_contains": [
+    "运行轨迹"
+  ]
+}

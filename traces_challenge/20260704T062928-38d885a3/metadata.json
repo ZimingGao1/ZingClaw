@@ -1,0 +1,29 @@
+{
+  "trace_id": "20260704T062928-38d885a3",
+  "created_at": "2026-07-04T06:29:28.391543+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "trace",
+    "chat_id": "traceq:challenge_read_then_run",
+    "session_key": "traceq:challenge_read_then_run",
+    "metadata": {
+      "trace_question_id": "challenge_read_then_run",
+      "trace_question_category": "e2e",
+      "trace_question_tags": [
+        "read_only",
+        "shell",
+        "multi_tool",
+        "e2e"
+      ],
+      "trace_question_set": "challenge-trace-questions"
+    }
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "traceq:challenge_read_then_run",
+  "channel": "trace",
+  "chat_id": "traceq:challenge_read_then_run",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-04T06:29:36.713121+00:00"
+}

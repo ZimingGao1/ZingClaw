@@ -18,3 +18,5 @@ memory/*
 
 logs/*
 !logs/.gitkeep
+
+eval_runs/

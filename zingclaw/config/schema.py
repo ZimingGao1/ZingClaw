@@ -124,6 +124,14 @@ class LoggingConfig(ConfigSection):
     )
 
 
+class TracingConfig(ConfigSection):
+    """Local trace capture for agent turns."""
+
+    enabled: bool = True
+    traces_dir: Path | None = None
+    include_text_deltas: bool = False
+
+
 class ApiConfig(ConfigSection):
     """Future API server configuration."""
 
@@ -160,6 +168,7 @@ class ZingClawConfig(ConfigSection):
     mcp_servers: list[MCPServerConfig] = Field(default_factory=list)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    tracing: TracingConfig = Field(default_factory=TracingConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     webui: WebUIConfig = Field(default_factory=WebUIConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
@@ -173,6 +182,7 @@ class ZingClawConfig(ConfigSection):
         self.paths.memory_dir = resolve_runtime_dir(self.paths.memory_dir, home, "memory")
         self.paths.logs_dir = resolve_runtime_dir(self.paths.logs_dir, home, "logs")
         self.paths.skills_dir = resolve_runtime_dir(self.paths.skills_dir, home, "skills")
+        self.tracing.traces_dir = resolve_runtime_dir(self.tracing.traces_dir, home, "traces")
         self.provider.name = self.provider.name.strip().lower().replace("-", "_")
         if not self.provider.backend.strip():
             self.provider.backend = self.provider.name

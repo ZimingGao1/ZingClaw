@@ -1,0 +1,20 @@
+{"seq": 1, "timestamp": "2026-07-03T08:56:06.127065+00:00", "elapsed_ms": 0, "type": "user_input", "input": "运行 test/hello.py，并告诉我输出是什么。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T08:56:06.128063+00:00", "elapsed_ms": 1, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T08:56:06.129062+00:00", "elapsed_ms": 2, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T08:56:06.170649+00:00", "elapsed_ms": 44, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T08:56:06.171648+00:00", "elapsed_ms": 45, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T08:56:08.391976+00:00", "elapsed_ms": 2265, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T08:56:08.392672+00:00", "elapsed_ms": 2266, "type": "tool_started", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec:3", "arguments": {"command": "python test/hello.py"}}
+{"seq": 8, "timestamp": "2026-07-03T08:56:08.431377+00:00", "elapsed_ms": 2305, "type": "tool_completed", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec:3", "result_preview": "hello world\r\n\n\nExit code: 0", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T08:56:08.432417+00:00", "elapsed_ms": 2305, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T08:56:10.235913+00:00", "elapsed_ms": 4109, "type": "text_delta", "delta": "输出", "iteration": 2}
+{"seq": 11, "timestamp": "2026-07-03T08:56:10.235913+00:00", "elapsed_ms": 4109, "type": "text_delta", "delta": "是", "iteration": 2}
+{"seq": 12, "timestamp": "2026-07-03T08:56:10.235913+00:00", "elapsed_ms": 4110, "type": "text_delta", "delta": "：\n\n", "iteration": 2}
+{"seq": 13, "timestamp": "2026-07-03T08:56:10.236925+00:00", "elapsed_ms": 4110, "type": "text_delta", "delta": "```\n", "iteration": 2}
+{"seq": 14, "timestamp": "2026-07-03T08:56:10.236925+00:00", "elapsed_ms": 4110, "type": "text_delta", "delta": "hello", "iteration": 2}
+{"seq": 15, "timestamp": "2026-07-03T08:56:10.236925+00:00", "elapsed_ms": 4110, "type": "text_delta", "delta": " world", "iteration": 2}
+{"seq": 16, "timestamp": "2026-07-03T08:56:10.236925+00:00", "elapsed_ms": 4110, "type": "text_delta", "delta": "\n", "iteration": 2}
+{"seq": 17, "timestamp": "2026-07-03T08:56:10.284293+00:00", "elapsed_ms": 4157, "type": "text_delta", "delta": "```", "iteration": 2}
+{"seq": 18, "timestamp": "2026-07-03T08:56:10.285515+00:00", "elapsed_ms": 4159, "type": "status", "status": "completed"}
+{"seq": 19, "timestamp": "2026-07-03T08:56:10.287031+00:00", "elapsed_ms": 4160, "type": "turn_completed", "stop_reason": "completed", "final_content": "输出是：\n\n```\nhello world\n```", "tools_used": ["exec"], "usage": {}, "error": null, "latency_ms": 4159}
+{"seq": 20, "timestamp": "2026-07-03T08:56:10.288033+00:00", "elapsed_ms": 4161, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["exec"], "usage": {}}

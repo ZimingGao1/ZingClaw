@@ -1,0 +1,29 @@
+{"seq": 1, "timestamp": "2026-07-03T08:31:28.899913+00:00", "elapsed_ms": 0, "type": "user_input", "input": "查看 notes 目录，确认 trace demo 文件是否存在。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T08:31:28.902420+00:00", "elapsed_ms": 2, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T08:31:28.902420+00:00", "elapsed_ms": 2, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T08:31:28.947476+00:00", "elapsed_ms": 47, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T08:31:28.947476+00:00", "elapsed_ms": 47, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T08:31:31.538821+00:00", "elapsed_ms": 2637, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T08:31:31.539326+00:00", "elapsed_ms": 2638, "type": "tool_started", "iteration": 1, "tool_name": "list_dir", "tool_call_id": "list_dir:0", "arguments": {"path": "notes"}}
+{"seq": 8, "timestamp": "2026-07-03T08:31:31.541388+00:00", "elapsed_ms": 2640, "type": "tool_completed", "iteration": 1, "tool_name": "list_dir", "tool_call_id": "list_dir:0", "result_preview": "trace_demo.md", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T08:31:31.541388+00:00", "elapsed_ms": 2641, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T08:31:33.182416+00:00", "elapsed_ms": 4281, "type": "text_delta", "delta": "是的", "iteration": 2}
+{"seq": 11, "timestamp": "2026-07-03T08:31:33.183677+00:00", "elapsed_ms": 4283, "type": "text_delta", "delta": "，", "iteration": 2}
+{"seq": 12, "timestamp": "2026-07-03T08:31:33.509876+00:00", "elapsed_ms": 4609, "type": "text_delta", "delta": "notes", "iteration": 2}
+{"seq": 13, "timestamp": "2026-07-03T08:31:33.510527+00:00", "elapsed_ms": 4609, "type": "text_delta", "delta": " ", "iteration": 2}
+{"seq": 14, "timestamp": "2026-07-03T08:31:33.511030+00:00", "elapsed_ms": 4610, "type": "text_delta", "delta": "目录", "iteration": 2}
+{"seq": 15, "timestamp": "2026-07-03T08:31:33.511030+00:00", "elapsed_ms": 4610, "type": "text_delta", "delta": "存在", "iteration": 2}
+{"seq": 16, "timestamp": "2026-07-03T08:31:33.511030+00:00", "elapsed_ms": 4610, "type": "text_delta", "delta": "，", "iteration": 2}
+{"seq": 17, "timestamp": "2026-07-03T08:31:33.512043+00:00", "elapsed_ms": 4611, "type": "text_delta", "delta": "并且", "iteration": 2}
+{"seq": 18, "timestamp": "2026-07-03T08:31:33.512043+00:00", "elapsed_ms": 4611, "type": "text_delta", "delta": "包含", "iteration": 2}
+{"seq": 19, "timestamp": "2026-07-03T08:31:33.512043+00:00", "elapsed_ms": 4611, "type": "text_delta", "delta": " **", "iteration": 2}
+{"seq": 20, "timestamp": "2026-07-03T08:31:33.513040+00:00", "elapsed_ms": 4612, "type": "text_delta", "delta": "trace", "iteration": 2}
+{"seq": 21, "timestamp": "2026-07-03T08:31:33.513040+00:00", "elapsed_ms": 4612, "type": "text_delta", "delta": "_demo", "iteration": 2}
+{"seq": 22, "timestamp": "2026-07-03T08:31:33.513040+00:00", "elapsed_ms": 4613, "type": "text_delta", "delta": ".md", "iteration": 2}
+{"seq": 23, "timestamp": "2026-07-03T08:31:33.617028+00:00", "elapsed_ms": 4716, "type": "text_delta", "delta": "**", "iteration": 2}
+{"seq": 24, "timestamp": "2026-07-03T08:31:33.617028+00:00", "elapsed_ms": 4716, "type": "text_delta", "delta": " ", "iteration": 2}
+{"seq": 25, "timestamp": "2026-07-03T08:31:33.617028+00:00", "elapsed_ms": 4717, "type": "text_delta", "delta": "文件", "iteration": 2}
+{"seq": 26, "timestamp": "2026-07-03T08:31:33.617028+00:00", "elapsed_ms": 4718, "type": "text_delta", "delta": "。", "iteration": 2}
+{"seq": 27, "timestamp": "2026-07-03T08:31:33.619602+00:00", "elapsed_ms": 4718, "type": "status", "status": "completed"}
+{"seq": 28, "timestamp": "2026-07-03T08:31:33.620106+00:00", "elapsed_ms": 4720, "type": "turn_completed", "stop_reason": "completed", "final_content": "是的，notes 目录存在，并且包含 **trace_demo.md** 文件。", "tools_used": ["list_dir"], "usage": {}, "error": null, "latency_ms": 4719}
+{"seq": 29, "timestamp": "2026-07-03T08:31:33.620106+00:00", "elapsed_ms": 4721, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["list_dir"], "usage": {}}

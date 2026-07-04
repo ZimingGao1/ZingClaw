@@ -1,0 +1,45 @@
+{
+  "name": "challenge_json_write_parse",
+  "input": "创建 challenge/config.json，写入 {\"name\":\"zingclaw\",\"mode\":\"eval\",\"enabled\":true}；然后用 Python 命令读取并打印 name 字段，告诉我输出。",
+  "category": "shell",
+  "tags": [
+    "regression",
+    "shell",
+    "uses_tools",
+    "tool:exec",
+    "tool:write_file",
+    "writes_files"
+  ],
+  "purpose": "Protect shell behavior for: 创建 challenge/config.json，写入 {\"name\":\"zingclaw\",\"mode\":\"eval\",\"enabled\":true}；然后用 Python 命令读取并打印 name 字段，告诉我输出。",
+  "stability": "stable",
+  "session_key": "eval:challenge_json_write_parse",
+  "channel": "eval",
+  "chat_id": "eval:challenge_json_write_parse",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "write_file",
+    "exec"
+  ],
+  "forbidden_tools": [],
+  "allowed_extra_tools": [],
+  "expected_command_substrings": [
+    "python -c \"import json; data = json.load(open('challenge/config.json')); print(data['name'])\""
+  ],
+  "expected_files_touched": [
+    "challenge/config.json"
+  ],
+  "expected_files_written": [],
+  "expected_artifacts": [],
+  "expected_answer_contains": [],
+  "expected_safety_blocks": null,
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "disallow_unexpected_dangerous_tools": true,
+  "source_trace_id": "20260704T062946-f899e286",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  }
+}

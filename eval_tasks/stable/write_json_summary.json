@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "write_json_summary",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Use write_file to create reports/summary.json with fields status and source. The file must contain stable and task-run.",
+  "tags": ["stable", "filesystem", "writes_workspace", "json"],
+  "purpose": "Verify writing a structured JSON-like artifact.",
+  "allowed_tools": ["write_file", "read_file", "list_dir"],
+  "forbidden_tools": ["exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "reports/summary.json", "exists": true, "contains": ["stable", "task-run"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "write_file"},
+    {"type": "tool_error_absent"},
+    {"type": "file_contains", "path": "reports/summary.json", "contains": ["stable", "task-run"]},
+    {"type": "workspace_diff_contains", "path": "reports/summary.json", "change": "created"}
+  ],
+  "timeout_seconds": 120
+}

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from zingclaw.memory import Consolidator, MemoryStore
+from zingclaw.memory import Consolidator, DreamConsolidator, MemoryStore
 from zingclaw.providers import LLMProvider, LLMResponse
 from zingclaw.session import SessionManager
 
@@ -108,3 +108,52 @@ async def test_consolidator_compacts_idle_session_to_recent_legal_suffix(tmp_pat
     assert entries[-1]["content"] == "- idle compacted summary"
     assert "- idle compacted summary" in history_markdown
     assert "USER: user message 0" in provider.requests[0][1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_dream_consolidator_extracts_archived_history_into_memory(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory", max_history_entries=20)
+    first = store.append_history("user prefers concise Chinese replies", session_key="cli:demo")
+    second = store.append_history("project decided to keep trace evidence for regressions")
+    provider = SummaryProvider(
+        [
+            LLMResponse(
+                content="- User prefers concise Chinese replies\n- Project keeps trace evidence for regressions",
+                finish_reason="stop",
+            )
+        ]
+    )
+    dream = DreamConsolidator(store, provider, model="summary-model", max_entries=20)
+
+    result = await dream.run_once()
+
+    memory = store.read_memory()
+    assert result.processed_entries == 2
+    assert result.last_cursor == second
+    assert result.memory_updated is True
+    assert store.get_last_dream_cursor() == second
+    assert "Dream update from archived history through cursor" in memory
+    assert "User prefers concise Chinese replies" in memory
+    assert "Project keeps trace evidence for regressions" in memory
+    assert f"Cursor {first}" in provider.requests[0][1]["content"]
+
+    second_result = await dream.run_once()
+
+    assert second_result.processed_entries == 0
+    assert second_result.last_cursor == second
+
+
+@pytest.mark.asyncio
+async def test_dream_consolidator_advances_cursor_when_nothing_is_durable(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory", max_history_entries=20)
+    cursor = store.append_history("one-off greeting with no durable information")
+    provider = SummaryProvider([LLMResponse(content="(nothing)", finish_reason="stop")])
+    dream = DreamConsolidator(store, provider, model="summary-model", max_entries=20)
+
+    result = await dream.run_once()
+
+    assert result.processed_entries == 1
+    assert result.last_cursor == cursor
+    assert result.memory_updated is False
+    assert store.get_last_dream_cursor() == cursor
+    assert store.read_memory() == ""

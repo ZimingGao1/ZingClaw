@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "create_python_sum_script",
+  "category": "shell",
+  "fixture": "basic_workspace",
+  "input": "Create calculations/sum_fixture.py that prints the sum of [1, 2, 3, 4, 5]. Run it and include the output 15 in the final answer.",
+  "tags": ["stable", "shell", "writes_workspace"],
+  "purpose": "Verify creating and executing a small Python script.",
+  "allowed_tools": ["write_file", "read_file", "exec", "list_dir"],
+  "forbidden_tools": ["web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "calculations/sum_fixture.py", "exists": true, "contains": ["sum", "print"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "write_file"},
+    {"type": "tool_used", "name": "exec"},
+    {"type": "tool_error_absent"},
+    {"type": "file_exists", "path": "calculations/sum_fixture.py"},
+    {"type": "command_output_contains", "contains": ["15"]},
+    {"type": "final_answer_contains", "contains": ["15"]}
+  ],
+  "timeout_seconds": 180
+}

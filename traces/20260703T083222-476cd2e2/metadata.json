@@ -1,0 +1,45 @@
+{
+  "trace_id": "20260703T083222-476cd2e2",
+  "created_at": "2026-07-03T08:32:22.209299+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "python_version",
+    "input": "运行 python --version，并告诉我结果。",
+    "category": "shell",
+    "tags": [
+      "regression",
+      "shell",
+      "uses_tools",
+      "tool:exec"
+    ],
+    "purpose": "Protect shell behavior for: 运行 python --version，并告诉我结果。",
+    "stability": "stable",
+    "session_key": "eval:python_version",
+    "channel": "eval",
+    "chat_id": "eval:python_version",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "exec"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [
+      "python --version"
+    ],
+    "expected_files_touched": [],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:python_version",
+  "channel": "eval",
+  "chat_id": "eval:python_version",
+  "status": "completed",
+  "updated_at": "2026-07-03T08:32:26.646984+00:00"
+}

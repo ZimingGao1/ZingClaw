@@ -1,0 +1,27 @@
+{
+  "trace_id": "20260702T144634-6d49a13f",
+  "created_at": "2026-07-02T14:46:34.074868+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "trace",
+    "chat_id": "traceq:memory_preference",
+    "session_key": "traceq:memory_preference",
+    "metadata": {
+      "trace_question_id": "memory_preference",
+      "trace_question_category": "memory",
+      "trace_question_tags": [
+        "memory",
+        "writes_memory"
+      ],
+      "trace_question_set": "starter-trace-questions"
+    }
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "traceq:memory_preference",
+  "channel": "trace",
+  "chat_id": "traceq:memory_preference",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-02T14:46:40.511010+00:00"
+}

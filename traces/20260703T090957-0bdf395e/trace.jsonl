@@ -1,0 +1,21 @@
+{"seq": 1, "timestamp": "2026-07-03T09:09:57.350034+00:00", "elapsed_ms": 0, "type": "user_input", "input": "运行 python --version，并告诉我结果。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T09:09:57.352152+00:00", "elapsed_ms": 2, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T09:09:57.352152+00:00", "elapsed_ms": 2, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T09:09:57.396937+00:00", "elapsed_ms": 47, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T09:09:57.396937+00:00", "elapsed_ms": 47, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T09:09:59.383627+00:00", "elapsed_ms": 2033, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T09:09:59.384132+00:00", "elapsed_ms": 2033, "type": "tool_started", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec_5", "arguments": {"command": "python --version"}}
+{"seq": 8, "timestamp": "2026-07-03T09:09:59.409400+00:00", "elapsed_ms": 2058, "type": "tool_completed", "iteration": 1, "tool_name": "exec", "tool_call_id": "exec_5", "result_preview": "Python 3.12.7\r\n\n\nExit code: 0", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T09:09:59.410400+00:00", "elapsed_ms": 2059, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T09:10:00.724279+00:00", "elapsed_ms": 3374, "type": "text_delta", "delta": "**", "iteration": 2}
+{"seq": 11, "timestamp": "2026-07-03T09:10:00.725283+00:00", "elapsed_ms": 3374, "type": "text_delta", "delta": "Python", "iteration": 2}
+{"seq": 12, "timestamp": "2026-07-03T09:10:00.725283+00:00", "elapsed_ms": 3374, "type": "text_delta", "delta": " ", "iteration": 2}
+{"seq": 13, "timestamp": "2026-07-03T09:10:00.725283+00:00", "elapsed_ms": 3375, "type": "text_delta", "delta": "3", "iteration": 2}
+{"seq": 14, "timestamp": "2026-07-03T09:10:00.725283+00:00", "elapsed_ms": 3375, "type": "text_delta", "delta": ".", "iteration": 2}
+{"seq": 15, "timestamp": "2026-07-03T09:10:00.844643+00:00", "elapsed_ms": 3494, "type": "text_delta", "delta": "12", "iteration": 2}
+{"seq": 16, "timestamp": "2026-07-03T09:10:00.844643+00:00", "elapsed_ms": 3494, "type": "text_delta", "delta": ".", "iteration": 2}
+{"seq": 17, "timestamp": "2026-07-03T09:10:00.844643+00:00", "elapsed_ms": 3494, "type": "text_delta", "delta": "7", "iteration": 2}
+{"seq": 18, "timestamp": "2026-07-03T09:10:00.845648+00:00", "elapsed_ms": 3495, "type": "text_delta", "delta": "**", "iteration": 2}
+{"seq": 19, "timestamp": "2026-07-03T09:10:00.846245+00:00", "elapsed_ms": 3495, "type": "status", "status": "completed"}
+{"seq": 20, "timestamp": "2026-07-03T09:10:00.847756+00:00", "elapsed_ms": 3497, "type": "turn_completed", "stop_reason": "completed", "final_content": "**Python 3.12.7**", "tools_used": ["exec"], "usage": {}, "error": null, "latency_ms": 3496}
+{"seq": 21, "timestamp": "2026-07-03T09:10:00.847756+00:00", "elapsed_ms": 3497, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["exec"], "usage": {}}

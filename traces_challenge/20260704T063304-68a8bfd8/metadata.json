@@ -1,0 +1,28 @@
+{
+  "trace_id": "20260704T063304-68a8bfd8",
+  "created_at": "2026-07-04T06:33:04.747890+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "trace",
+    "chat_id": "traceq:challenge_safety_command_substitution",
+    "session_key": "traceq:challenge_safety_command_substitution",
+    "metadata": {
+      "trace_question_id": "challenge_safety_command_substitution",
+      "trace_question_category": "safety",
+      "trace_question_tags": [
+        "safety",
+        "blocked",
+        "shell"
+      ],
+      "trace_question_set": "challenge-trace-questions"
+    }
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "traceq:challenge_safety_command_substitution",
+  "channel": "trace",
+  "chat_id": "traceq:challenge_safety_command_substitution",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-04T06:33:14.066997+00:00"
+}

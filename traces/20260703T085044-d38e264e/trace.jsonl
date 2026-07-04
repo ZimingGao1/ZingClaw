@@ -1,0 +1,12 @@
+{"seq": 1, "timestamp": "2026-07-03T08:50:44.104085+00:00", "elapsed_ms": 0, "type": "user_input", "input": "创建 notes/trace_demo.md，写入一段关于 trace 作用的简短说明。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T08:50:44.104085+00:00", "elapsed_ms": 1, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T08:50:44.105089+00:00", "elapsed_ms": 1, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T08:50:44.147687+00:00", "elapsed_ms": 44, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T08:50:44.148697+00:00", "elapsed_ms": 45, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T08:50:50.230187+00:00", "elapsed_ms": 6126, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T08:50:50.230187+00:00", "elapsed_ms": 6127, "type": "tool_started", "iteration": 1, "tool_name": "read_file", "tool_call_id": "read_file_1", "arguments": {"path": "notes/trace_demo.md"}}
+{"seq": 8, "timestamp": "2026-07-03T08:50:50.231191+00:00", "elapsed_ms": 6128, "type": "tool_completed", "iteration": 1, "tool_name": "read_file", "tool_call_id": "read_file_1", "result_preview": "1| # 运行轨迹 的作用\n2| \n3| 运行轨迹（追踪）是一种用于记录程序执行过程的技术，主要用于：\n4| \n5| 1. **调试**：追踪代码执行路径，定位 bug 发生的具体位置\n6| 2. **性能分析**：记录函数调用耗时，识别性能瓶颈\n7| 3. **审计日志**：记录关键操作，便于后续审计和回溯\n8| 4. **请求链路**：在分布式系统中追踪请求在各服务间的流转\n9| \n10| 通过 运行轨迹，开发者可以清晰地看到程序\"何时、何地、做了什么\"，大大提升问题排查效率。\n\n[End of file. Total lines: 10]", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T08:50:50.232305+00:00", "elapsed_ms": 6128, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T08:50:58.231766+00:00", "elapsed_ms": 14128, "type": "status", "status": "completed"}
+{"seq": 11, "timestamp": "2026-07-03T08:50:58.232271+00:00", "elapsed_ms": 14129, "type": "turn_completed", "stop_reason": "completed", "final_content": "文件 `notes/trace_demo.md` 已存在，内容如下：\n\n```markdown\n# 运行轨迹 的作用\n\n运行轨迹（追踪）是一种用于记录程序执行过程的技术，主要用于：\n\n1. **调试**：追踪代码执行路径，定位 bug 发生的具体位置\n2. **性能分析**：记录函数调用耗时，识别性能瓶颈\n3. **审计日志**：记录关键操作，便于后续审计和回溯\n4. **请求链路**：在分布式系统中追踪请求在各服务间的流转\n\n通过 运行轨迹，开发者可以清晰地看到程序\"何时、何地、做了什么\"，大大提升问题排查效率。\n```\n\n如需修改内容，请告诉我。", "tools_used": ["read_file"], "usage": {}, "error": null, "latency_ms": 14129}
+{"seq": 12, "timestamp": "2026-07-03T08:50:58.233279+00:00", "elapsed_ms": 14129, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["read_file"], "usage": {}}

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "edit_todo_contract_done",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Update docs/todo.md so the line Create task contracts is checked as done. Use read_file first, then edit_file or apply_patch.",
+  "tags": ["stable", "filesystem", "edits_workspace"],
+  "purpose": "Verify a targeted markdown edit.",
+  "allowed_tools": ["read_file", "edit_file", "apply_patch", "write_file", "list_dir"],
+  "forbidden_tools": ["exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "docs/todo.md", "exists": true, "contains": ["- [x] Create task contracts"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "read_file"},
+    {"type": "tool_error_absent"},
+    {"type": "file_contains", "path": "docs/todo.md", "contains": ["- [x] Create task contracts"]},
+    {"type": "workspace_diff_contains", "path": "docs/todo.md", "change": "modified"}
+  ],
+  "timeout_seconds": 120
+}

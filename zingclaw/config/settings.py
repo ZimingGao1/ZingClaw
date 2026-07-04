@@ -21,6 +21,7 @@ from zingclaw.config.schema import (
     PathsConfig,
     ProviderConfig,
     SecurityConfig,
+    TracingConfig,
     WebUIConfig,
     ZingClawConfig,
 )
@@ -94,6 +95,7 @@ class Settings(BaseSettings):
     mcp_servers: list[MCPServerConfig] = Field(default_factory=list)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    tracing: TracingConfig = Field(default_factory=TracingConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     webui: WebUIConfig = Field(default_factory=WebUIConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
@@ -187,6 +189,7 @@ class Settings(BaseSettings):
             home,
             "skills",
         )
+        self.tracing.traces_dir = resolve_runtime_dir(self.tracing.traces_dir, home, "traces")
         self.workspace_dir = self.paths.workspace_dir
         self.sessions_dir = self.paths.sessions_dir
         self.memory_dir = self.paths.memory_dir

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "create_nested_note",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Use write_file to create docs/generated/note.md. The file must contain the phrase nested note.",
+  "tags": ["stable", "filesystem", "writes_workspace"],
+  "purpose": "Verify creating parent directories automatically.",
+  "allowed_tools": ["write_file", "read_file", "list_dir"],
+  "forbidden_tools": ["exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "docs/generated/note.md", "exists": true, "contains": ["nested note"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "write_file"},
+    {"type": "tool_error_absent"},
+    {"type": "file_contains", "path": "docs/generated/note.md", "contains": ["nested note"]},
+    {"type": "workspace_diff_contains", "path": "docs/generated/note.md", "change": "created"}
+  ],
+  "timeout_seconds": 120
+}

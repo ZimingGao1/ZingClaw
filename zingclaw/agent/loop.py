@@ -29,6 +29,7 @@ from zingclaw.bus import (
 )
 from zingclaw.config import Settings
 from zingclaw.cron import CronService
+from zingclaw.evaluation.trace import TRACE_DISABLED_METADATA_KEY, RuntimeTraceCapture, TraceStore
 from zingclaw.memory import Consolidator, MemoryStore
 from zingclaw.providers import LLMProvider, TextDeltaCallback, create_provider
 from zingclaw.session import (
@@ -59,6 +60,15 @@ from zingclaw.tools import (
 )
 
 _DEFAULT_CHANNEL = "cli"
+_SESSION_MESSAGE_METADATA_EXCLUDE_KEYS = {
+    "content",
+    "role",
+    TRACE_DISABLED_METADATA_KEY,
+}
+_SESSION_MESSAGE_METADATA_EXCLUDE_PREFIXES = (
+    "_",
+    "trace_question_",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +90,7 @@ class AgentLoopResult:
     tools_used: list[str] = field(default_factory=list)
     usage: dict[str, int] = field(default_factory=dict)
     suppress_outbound: bool = False
+    trace_id: str | None = None
 
 
 class AgentLoop:
@@ -312,6 +323,8 @@ class AgentLoop:
         }
         if result.error is not None:
             metadata["error"] = result.error
+        if result.trace_id is not None:
+            metadata["trace_id"] = result.trace_id
         if streamed:
             metadata["_stream_end"] = True
             metadata["_streamed"] = True
@@ -353,6 +366,11 @@ class AgentLoop:
             channel=channel,
             chat_id=resolved_chat_id,
             session_key=session_key,
+            metadata=meta,
+        )
+        trace_capture = self._start_turn_trace(
+            runtime_context,
+            user_input=message,
             metadata=meta,
         )
         await self.runtime_events.publish(SessionTurnStarted(context=runtime_context))
@@ -462,7 +480,7 @@ class AgentLoop:
             )
         )
 
-        return AgentLoopResult(
+        result = AgentLoopResult(
             session_key=session_key,
             final_content=run_result.final_content,
             stop_reason=run_result.stop_reason,
@@ -471,6 +489,33 @@ class AgentLoop:
             tools_used=list(run_result.tools_used),
             usage=dict(run_result.usage),
             suppress_outbound=continuation_scheduled,
+            trace_id=trace_capture.trace_id if trace_capture is not None else None,
+        )
+        if trace_capture is not None:
+            trace_capture.record_result(result)
+            trace_capture.finalize(status=result.stop_reason, error=result.error)
+        return result
+
+    def _start_turn_trace(
+        self,
+        runtime_context: Any,
+        *,
+        user_input: str,
+        metadata: dict[str, Any],
+    ) -> RuntimeTraceCapture | None:
+        if not self.settings.tracing.enabled or metadata.get(TRACE_DISABLED_METADATA_KEY):
+            return None
+        traces_dir = self.settings.tracing.traces_dir or (self.settings.home_dir / "traces")
+        store = TraceStore(traces_dir)
+        return store.start_runtime_capture(
+            runtime_events=self.runtime_events,
+            context=runtime_context,
+            user_input=user_input,
+            metadata={
+                "model": self.settings.model_name,
+                "provider": self.settings.provider_name,
+            },
+            include_text_deltas=self.settings.tracing.include_text_deltas,
         )
 
     def _merged_mcp_runtime_lines(
@@ -593,14 +638,25 @@ class AgentLoop:
         chat_id: str,
         metadata: dict[str, Any],
     ) -> None:
-        extra = {
-            key: value
-            for key, value in metadata.items()
-            if key not in {"content", "role"} and value is not None
-        }
+        extra = AgentLoop._persistable_message_metadata(metadata)
         extra["channel"] = channel
         extra["chat_id"] = chat_id
         session.add_message(role, content, **extra)
+
+    @staticmethod
+    def _persistable_message_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+        """Keep user-visible provenance, not runtime/evaluation control fields."""
+        extra: dict[str, Any] = {}
+        for key, value in metadata.items():
+            if value is None:
+                continue
+            normalized = str(key)
+            if normalized in _SESSION_MESSAGE_METADATA_EXCLUDE_KEYS:
+                continue
+            if any(normalized.startswith(prefix) for prefix in _SESSION_MESSAGE_METADATA_EXCLUDE_PREFIXES):
+                continue
+            extra[normalized] = value
+        return extra
 
     def _persist_runner_messages(
         self,

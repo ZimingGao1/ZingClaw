@@ -1,0 +1,19 @@
+{
+  "trace_id": "20260703T083235-09a9e42e",
+  "created_at": "2026-07-03T08:32:35.773861+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "eval",
+    "chat_id": "eval:run_hello_py",
+    "session_key": "eval:run_hello_py",
+    "metadata": {}
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "eval:run_hello_py",
+  "channel": "eval",
+  "chat_id": "eval:run_hello_py",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-03T08:32:39.949963+00:00"
+}

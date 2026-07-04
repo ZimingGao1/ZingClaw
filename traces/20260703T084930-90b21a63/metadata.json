@@ -1,0 +1,46 @@
+{
+  "trace_id": "20260703T084930-90b21a63",
+  "created_at": "2026-07-03T08:49:30.783238+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "list_after_write",
+    "input": "查看 notes 目录，确认 trace demo 文件是否存在。",
+    "category": "filesystem",
+    "tags": [
+      "regression",
+      "filesystem",
+      "uses_tools",
+      "tool:list_dir",
+      "read_only"
+    ],
+    "purpose": "Protect filesystem behavior for: 查看 notes 目录，确认 trace demo 文件是否存在。",
+    "stability": "stable",
+    "session_key": "eval:list_after_write",
+    "channel": "eval",
+    "chat_id": "eval:list_after_write",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "list_dir"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [],
+    "expected_files_touched": [
+      "notes"
+    ],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:list_after_write",
+  "channel": "eval",
+  "chat_id": "eval:list_after_write",
+  "status": "completed",
+  "updated_at": "2026-07-03T08:49:34.603689+00:00"
+}

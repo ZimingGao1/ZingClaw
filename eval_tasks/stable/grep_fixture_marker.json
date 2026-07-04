@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "grep_fixture_marker",
+  "category": "search",
+  "fixture": "basic_workspace",
+  "input": "Use grep to search for the exact text fixture-ready. In the final answer, mention the file where it appears.",
+  "tags": ["stable", "search", "read_only"],
+  "purpose": "Verify content search over workspace files.",
+  "allowed_tools": ["grep", "read_file", "find_files", "list_dir"],
+  "forbidden_tools": ["write_file", "edit_file", "apply_patch", "exec", "web_fetch", "web_search"],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "grep"},
+    {"type": "tool_error_absent"},
+    {"type": "final_answer_contains", "contains": ["README.md"]}
+  ],
+  "timeout_seconds": 120
+}

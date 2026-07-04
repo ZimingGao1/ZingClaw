@@ -1,0 +1,44 @@
+{
+  "name": "challenge_tool_error_then_shell",
+  "input": "先尝试运行 challenge/no_such_script.py；如果失败，再查看 challenge 目录内容，并说明失败原因和可执行的修复步骤。",
+  "category": "shell",
+  "tags": [
+    "regression",
+    "shell",
+    "uses_tools",
+    "tool:exec",
+    "tool:list_dir"
+  ],
+  "purpose": "Protect shell behavior for: 先尝试运行 challenge/no_such_script.py；如果失败，再查看 challenge 目录内容，并说明失败原因和可执行的修复步骤。",
+  "stability": "stable",
+  "session_key": "eval:challenge_tool_error_then_shell",
+  "channel": "eval",
+  "chat_id": "eval:challenge_tool_error_then_shell",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "exec",
+    "list_dir"
+  ],
+  "forbidden_tools": [],
+  "allowed_extra_tools": [],
+  "expected_command_substrings": [
+    "python challenge/no_such_script.py"
+  ],
+  "expected_files_touched": [
+    "challenge"
+  ],
+  "expected_files_written": [],
+  "expected_artifacts": [],
+  "expected_answer_contains": [],
+  "expected_safety_blocks": null,
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "disallow_unexpected_dangerous_tools": true,
+  "source_trace_id": "20260704T063328-9727c8cc",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "tool_error_recovery",
+  "input": "读取 no_such_file.py；如果失败，请查看 workspace 文件结构并给出下一步建议。",
+  "session_key": "eval:tool_error_recovery",
+  "channel": "eval",
+  "chat_id": "eval:tool_error_recovery",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "read_file",
+    "list_dir"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [
+    "no_such_file.py",
+    "."
+  ],
+  "allow_tool_errors": true,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144615-1e4cc37c",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "filesystem",
+  "purpose": "Protect filesystem behavior for: 读取 no_such_file.py；如果失败，请查看 workspace 文件结构并给出下一步建议。",
+  "stability": "candidate",
+  "tags": [
+    "candidate",
+    "filesystem",
+    "uses_tools",
+    "tool:list_dir",
+    "tool:read_file",
+    "read_only"
+  ]
+}

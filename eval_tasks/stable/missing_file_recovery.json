@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "id": "missing_file_recovery",
+  "category": "recovery",
+  "fixture": "basic_workspace",
+  "input": "Try to read missing_file.txt. If it is missing, do not create it; use list_dir to inspect the workspace root and explain the recovery.",
+  "tags": ["stable", "recovery", "read_only"],
+  "purpose": "Verify graceful recovery after a missing file error.",
+  "allowed_tools": ["read_file", "list_dir", "find_files"],
+  "forbidden_tools": ["write_file", "edit_file", "apply_patch", "exec", "web_fetch", "web_search"],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "read_file"},
+    {"type": "tool_used", "name": "list_dir"},
+    {"type": "file_not_exists", "path": "missing_file.txt"},
+    {"type": "final_answer_contains", "contains": ["missing_file.txt"]}
+  ],
+  "timeout_seconds": 120
+}

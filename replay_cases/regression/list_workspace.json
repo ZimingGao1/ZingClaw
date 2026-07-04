@@ -1,0 +1,35 @@
+{
+  "name": "list_workspace",
+  "input": "查看当前 workspace 的文件结构，并简单说明各目录用途。",
+  "session_key": "eval:list_workspace",
+  "channel": "eval",
+  "chat_id": "eval:list_workspace",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T143306-1174a258",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "filesystem",
+  "purpose": "Protect workspace listing behavior: the agent should inspect the root directory before summarizing it.",
+  "stability": "stable",
+  "tags": [
+    "regression",
+    "filesystem",
+    "read_only",
+    "semantic_assertion"
+  ],
+  "expected_answer_contains": [
+    "workspace",
+    "cron",
+    "test"
+  ]
+}

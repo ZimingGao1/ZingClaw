@@ -1,0 +1,27 @@
+{
+  "trace_id": "20260703T043633-d4650b39",
+  "created_at": "2026-07-03T04:36:33.934604+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "trace",
+    "chat_id": "tracecheck:chat_capabilities",
+    "session_key": "tracecheck:chat_capabilities",
+    "metadata": {
+      "trace_question_id": "chat_capabilities",
+      "trace_question_category": "chat",
+      "trace_question_tags": [
+        "read_only",
+        "baseline"
+      ],
+      "trace_question_set": "starter-trace-questions"
+    }
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "tracecheck:chat_capabilities",
+  "channel": "trace",
+  "chat_id": "tracecheck:chat_capabilities",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-03T04:36:40.360368+00:00"
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "find_python_files",
+  "category": "search",
+  "fixture": "basic_workspace",
+  "input": "Use find_files to find Python files in the workspace. In the final answer, mention test/hello.py and src/calculator.py.",
+  "tags": ["stable", "search", "read_only"],
+  "purpose": "Verify file discovery over fixture Python files.",
+  "allowed_tools": ["find_files", "list_dir"],
+  "forbidden_tools": ["write_file", "edit_file", "apply_patch", "exec", "web_fetch", "web_search"],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "find_files"},
+    {"type": "tool_error_absent"},
+    {"type": "final_answer_contains", "contains": ["test/hello.py", "src/calculator.py"]}
+  ],
+  "timeout_seconds": 120
+}

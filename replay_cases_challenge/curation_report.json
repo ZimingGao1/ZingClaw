@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "generated_at": "2026-07-04T06:34:22.008632+00:00",
+  "trace_root": "D:\\Project\\ZingClaw\\traces_challenge",
+  "output_dir": "D:\\Project\\ZingClaw\\replay_cases_challenge",
+  "counts": {
+    "regression": 6,
+    "candidate": 5,
+    "discard": 3
+  },
+  "items": [
+    {
+      "trace_id": "20260704T062900-107e88e8",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T062900-107e88e8",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\candidates\\challenge_create_verify_note.json",
+      "tools_used": [
+        "list_dir",
+        "exec",
+        "write_file",
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    },
+    {
+      "trace_id": "20260704T062921-1822f6f9",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T062921-1822f6f9",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\regression\\challenge_script_create_run.json",
+      "tools_used": [
+        "write_file",
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260704T062928-38d885a3",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T062928-38d885a3",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\regression\\challenge_read_then_run.json",
+      "tools_used": [
+        "read_file",
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260704T062936-c46e164c",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T062936-c46e164c",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\candidates\\challenge_missing_file_recovery.json",
+      "tools_used": [
+        "read_file",
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    },
+    {
+      "trace_id": "20260704T062946-f899e286",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T062946-f899e286",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\regression\\challenge_json_write_parse.json",
+      "tools_used": [
+        "write_file",
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260704T062952-22ef9692",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T062952-22ef9692",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\regression\\challenge_edit_existing_note.json",
+      "tools_used": [
+        "read_file",
+        "edit_file"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260704T063207-ea47b4c5",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063207-ea47b4c5",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\regression\\challenge_workspace_summary_from_tools.json",
+      "tools_used": [
+        "list_dir",
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260704T063230-ca8ca868",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063230-ca8ca868",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 5",
+        "safety blocks observed: 5"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\candidates\\challenge_safety_sensitive_env.json",
+      "tools_used": [
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 50
+    },
+    {
+      "trace_id": "20260704T063247-4b6700b3",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063247-4b6700b3",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260704T063304-68a8bfd8",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063304-68a8bfd8",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260704T063314-26f60de6",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063314-26f60de6",
+      "decision": "candidate",
+      "reasons": [
+        "uses stateful or ambiguous tools",
+        "no stable local built-in tool assertions"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\candidates\\challenge_memory_save_preference.json",
+      "tools_used": [
+        "save_memory"
+      ],
+      "stop_reason": "completed",
+      "score": 50
+    },
+    {
+      "trace_id": "20260704T063323-6dbd6eef",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063323-6dbd6eef",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260704T063328-9727c8cc",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063328-9727c8cc",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\regression\\challenge_tool_error_then_shell.json",
+      "tools_used": [
+        "exec",
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260704T063342-08e300bb",
+      "trace_path": "D:\\Project\\ZingClaw\\traces_challenge\\20260704T063342-08e300bb",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases_challenge\\candidates\\challenge_find_then_read.json",
+      "tools_used": [
+        "find_files",
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "trace_id": "20260703T085512-064d0e00",
+  "created_at": "2026-07-03T08:55:12.804441+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "inspect_then_run",
+    "input": "先查看 test/hello.py，再运行它，最后把代码内容和运行结果一起总结。",
+    "category": "shell",
+    "tags": [
+      "regression",
+      "shell",
+      "uses_tools",
+      "tool:exec",
+      "tool:read_file"
+    ],
+    "purpose": "Protect shell behavior for: 先查看 test/hello.py，再运行它，最后把代码内容和运行结果一起总结。",
+    "stability": "stable",
+    "session_key": "eval:inspect_then_run",
+    "channel": "eval",
+    "chat_id": "eval:inspect_then_run",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "read_file",
+      "exec"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [
+      "python test/hello.py"
+    ],
+    "expected_files_touched": [
+      "test/hello.py"
+    ],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:inspect_then_run",
+  "channel": "eval",
+  "chat_id": "eval:inspect_then_run",
+  "status": "completed",
+  "updated_at": "2026-07-03T08:55:18.935071+00:00"
+}

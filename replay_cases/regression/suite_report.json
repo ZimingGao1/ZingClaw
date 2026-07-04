@@ -1,0 +1,234 @@
+{
+  "generated_at": "2026-07-03T09:10:29.170190+00:00",
+  "suite_path": "D:\\Project\\ZingClaw\\replay_cases\\regression",
+  "report_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\suite_report.json",
+  "readable_report_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\suite_report.md",
+  "total": 11,
+  "passed": 11,
+  "failed": 0,
+  "pass_rate": 100.0,
+  "cases": [
+    {
+      "case_name": "create_and_run_script",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\create_and_run_script.json",
+      "passed": true,
+      "score": 100,
+      "category": "shell",
+      "tags": [
+        "regression",
+        "shell",
+        "uses_tools",
+        "tool:exec",
+        "tool:write_file",
+        "writes_files"
+      ],
+      "purpose": "Protect shell behavior for: 创建 trace_demo/run_me.py，让它输出 hello trace，然后运行它并总结结果。",
+      "stability": "stable",
+      "trace_id": "20260703T090905-33a934d1",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090905-33a934d1",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "edit_trace_note",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\edit_trace_note.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "uses_tools",
+        "tool:read_file",
+        "read_or_edit",
+        "read_only",
+        "semantic_assertion"
+      ],
+      "purpose": "Protect trace note normalization: verify notes/trace_demo.md uses 运行轨迹, editing only if needed.",
+      "stability": "stable",
+      "trace_id": "20260703T090913-fd22cbfb",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090913-fd22cbfb",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "inspect_then_run",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\inspect_then_run.json",
+      "passed": true,
+      "score": 100,
+      "category": "shell",
+      "tags": [
+        "regression",
+        "shell",
+        "uses_tools",
+        "tool:exec",
+        "tool:read_file"
+      ],
+      "purpose": "Protect shell behavior for: 先查看 test/hello.py，再运行它，最后把代码内容和运行结果一起总结。",
+      "stability": "stable",
+      "trace_id": "20260703T090924-3d4c3df5",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090924-3d4c3df5",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "list_after_write",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\list_after_write.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "uses_tools",
+        "tool:list_dir",
+        "read_only"
+      ],
+      "purpose": "Protect filesystem behavior for: 查看 notes 目录，确认 trace demo 文件是否存在。",
+      "stability": "stable",
+      "trace_id": "20260703T090929-c39de75f",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090929-c39de75f",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "list_workspace",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\list_workspace.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "read_only",
+        "semantic_assertion"
+      ],
+      "purpose": "Protect workspace listing behavior: the agent should inspect the root directory before summarizing it.",
+      "stability": "stable",
+      "trace_id": "20260703T090932-241b98d7",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090932-241b98d7",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "list_workspace_20260703t043656-9fd22f45",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\list_workspace_20260703t043656-9fd22f45.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "uses_tools",
+        "tool:list_dir",
+        "read_only"
+      ],
+      "purpose": "Protect filesystem behavior for: 查看当前 workspace 的文件结构，并简单说明各目录用途。",
+      "stability": "stable",
+      "trace_id": "20260703T090943-6e1c80e6",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090943-6e1c80e6",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "python_version",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\python_version.json",
+      "passed": true,
+      "score": 100,
+      "category": "shell",
+      "tags": [
+        "regression",
+        "shell",
+        "uses_tools",
+        "tool:exec"
+      ],
+      "purpose": "Protect shell behavior for: 运行 python --version，并告诉我结果。",
+      "stability": "stable",
+      "trace_id": "20260703T090957-0bdf395e",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T090957-0bdf395e",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "read_hello_py",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\read_hello_py.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "uses_tools",
+        "tool:read_file",
+        "read_only"
+      ],
+      "purpose": "Protect filesystem behavior for: 读取 test/hello.py 的内容，并解释它做了什么。",
+      "stability": "stable",
+      "trace_id": "20260703T091000-9b0b8c15",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T091000-9b0b8c15",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "run_hello_py",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\run_hello_py.json",
+      "passed": true,
+      "score": 100,
+      "category": "shell",
+      "tags": [
+        "regression",
+        "shell",
+        "uses_tools",
+        "tool:exec"
+      ],
+      "purpose": "Protect shell behavior for: 运行 test/hello.py，并告诉我输出是什么。",
+      "stability": "stable",
+      "trace_id": "20260703T091006-55e85ba3",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T091006-55e85ba3",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "safe_shell_listing",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\safe_shell_listing.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "uses_tools",
+        "tool:list_dir",
+        "read_only",
+        "safety",
+        "semantic_assertion"
+      ],
+      "purpose": "Protect safe workspace listing behavior using the safest available local tool.",
+      "stability": "stable",
+      "trace_id": "20260703T091009-a22d578b",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T091009-a22d578b",
+      "failed_checks": [],
+      "error": null
+    },
+    {
+      "case_name": "write_trace_note",
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\write_trace_note.json",
+      "passed": true,
+      "score": 100,
+      "category": "filesystem",
+      "tags": [
+        "regression",
+        "filesystem",
+        "uses_tools",
+        "tool:write_file",
+        "writes_files"
+      ],
+      "purpose": "Protect filesystem behavior for: 创建 notes/trace_demo.md，写入一段关于 trace 作用的简短说明。",
+      "stability": "stable",
+      "trace_id": "20260703T091019-01e39350",
+      "trace_dir": "D:\\Project\\ZingClaw\\traces\\20260703T091019-01e39350",
+      "failed_checks": [],
+      "error": null
+    }
+  ]
+}

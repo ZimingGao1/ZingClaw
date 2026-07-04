@@ -1,0 +1,35 @@
+{
+  "name": "web_search_weather",
+  "input": "搜索今天上海天气，给出简短结果并说明来源。",
+  "session_key": "eval:web_search_weather",
+  "channel": "eval",
+  "chat_id": "eval:web_search_weather",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "web_search",
+    "web_fetch"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [],
+  "allow_tool_errors": true,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144740-f06d69c0",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "web",
+  "purpose": "Protect web behavior for: 搜索今天上海天气，给出简短结果并说明来源。",
+  "stability": "candidate",
+  "tags": [
+    "candidate",
+    "web",
+    "uses_tools",
+    "tool:web_fetch",
+    "tool:web_search",
+    "network"
+  ]
+}

@@ -71,3 +71,30 @@ def test_memory_store_rebuilds_history_markdown_from_existing_jsonl(tmp_path: Pa
     assert "summary one" in history_markdown
     assert "Session: `cli:demo`" in history_markdown
     assert "summary two" in history_markdown
+
+
+def test_memory_store_builds_dream_prompt_from_unprocessed_history(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory", max_history_entries=10)
+    first = store.append_history("user prefers concise Chinese replies", session_key="cli:demo")
+    second = store.append_history("project uses a trace system for runtime evidence")
+    third = store.append_history("temporary command output that can stay archived")
+
+    prompt, last_cursor, entry_count = store.build_dream_prompt(max_entries=2) or ("", 0, 0)
+
+    assert entry_count == 2
+    assert last_cursor == second
+    assert f"Cursor {first}" in prompt
+    assert "Session: cli:demo" in prompt
+    assert "user prefers concise Chinese replies" in prompt
+    assert "project uses a trace system" in prompt
+    assert "that can stay archived" not in prompt
+
+    store.set_last_dream_cursor(second)
+    prompt, last_cursor, entry_count = store.build_dream_prompt(max_entries=2) or ("", 0, 0)
+
+    assert entry_count == 1
+    assert last_cursor == third
+    assert "temporary command output" in prompt
+
+    store.set_last_dream_cursor(third)
+    assert store.build_dream_prompt(max_entries=2) is None

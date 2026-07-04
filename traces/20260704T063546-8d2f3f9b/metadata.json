@@ -1,0 +1,19 @@
+{
+  "trace_id": "20260704T063546-8d2f3f9b",
+  "created_at": "2026-07-04T06:35:46.111900+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "eval",
+    "chat_id": "eval:challenge_workspace_summary_from_tools",
+    "session_key": "eval:challenge_workspace_summary_from_tools",
+    "metadata": {}
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "eval:challenge_workspace_summary_from_tools",
+  "channel": "eval",
+  "chat_id": "eval:challenge_workspace_summary_from_tools",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-04T06:36:09.074796+00:00"
+}

@@ -1,0 +1,48 @@
+{
+  "trace_id": "20260703T085505-bc14ebbd",
+  "created_at": "2026-07-03T08:55:05.478946+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "edit_trace_note",
+    "input": "把 notes/trace_demo.md 里出现的 trace 改成“运行轨迹”，然后说明你修改了什么。",
+    "category": "filesystem",
+    "tags": [
+      "regression",
+      "filesystem",
+      "uses_tools",
+      "tool:apply_patch",
+      "tool:read_file",
+      "writes_files"
+    ],
+    "purpose": "Protect filesystem behavior for: 把 notes/trace_demo.md 里出现的 trace 改成“运行轨迹”，然后说明你修改了什么。",
+    "stability": "stable",
+    "session_key": "eval:edit_trace_note",
+    "channel": "eval",
+    "chat_id": "eval:edit_trace_note",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "read_file",
+      "apply_patch"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [],
+    "expected_files_touched": [
+      "notes/trace_demo.md"
+    ],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:edit_trace_note",
+  "channel": "eval",
+  "chat_id": "eval:edit_trace_note",
+  "status": "completed",
+  "updated_at": "2026-07-03T08:55:12.797044+00:00"
+}

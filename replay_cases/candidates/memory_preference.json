@@ -1,0 +1,33 @@
+{
+  "name": "memory_preference",
+  "input": "请记住：我希望回答简洁、能让我看到效果。然后说明你会如何使用这个偏好。",
+  "session_key": "eval:memory_preference",
+  "channel": "eval",
+  "chat_id": "eval:memory_preference",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "save_memory"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144634-6d49a13f",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "memory",
+  "purpose": "Protect memory behavior for: 请记住：我希望回答简洁、能让我看到效果。然后说明你会如何使用这个偏好。",
+  "stability": "candidate",
+  "tags": [
+    "candidate",
+    "memory",
+    "uses_tools",
+    "tool:save_memory",
+    "stateful"
+  ]
+}

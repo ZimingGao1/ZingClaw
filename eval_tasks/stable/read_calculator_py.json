@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "read_calculator_py",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Use read_file to inspect src/calculator.py. In the final answer, mention add and multiply.",
+  "tags": ["stable", "filesystem", "read_only", "python"],
+  "purpose": "Verify reading a Python source fixture.",
+  "allowed_tools": ["read_file", "find_files", "list_dir"],
+  "forbidden_tools": ["write_file", "edit_file", "apply_patch", "exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "src/calculator.py", "exists": true, "contains": ["def add", "def multiply"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "read_file"},
+    {"type": "tool_error_absent"},
+    {"type": "final_answer_contains", "contains": ["add", "multiply"]}
+  ],
+  "timeout_seconds": 120
+}

@@ -1,0 +1,49 @@
+{
+  "trace_id": "20260703T083239-cc4b1c9d",
+  "created_at": "2026-07-03T08:32:39.957938+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "safe_shell_listing",
+    "input": "运行一个安全命令查看当前 workspace 根目录内容，并解释输出。",
+    "category": "shell",
+    "tags": [
+      "regression",
+      "shell",
+      "uses_tools",
+      "tool:exec",
+      "tool:list_dir"
+    ],
+    "purpose": "Protect shell behavior for: 运行一个安全命令查看当前 workspace 根目录内容，并解释输出。",
+    "stability": "stable",
+    "session_key": "eval:safe_shell_listing",
+    "channel": "eval",
+    "chat_id": "eval:safe_shell_listing",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "exec",
+      "list_dir"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [
+      "dir"
+    ],
+    "expected_files_touched": [
+      "D:/Project/ZingClaw/workspace"
+    ],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:safe_shell_listing",
+  "channel": "eval",
+  "chat_id": "eval:safe_shell_listing",
+  "status": "completed",
+  "updated_at": "2026-07-03T08:32:51.269536+00:00"
+}

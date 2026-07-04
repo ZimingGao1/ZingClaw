@@ -1,0 +1,26 @@
+{"seq": 1, "timestamp": "2026-07-03T08:49:30.783238+00:00", "elapsed_ms": 0, "type": "user_input", "input": "查看 notes 目录，确认 trace demo 文件是否存在。", "metadata": {}}
+{"seq": 2, "timestamp": "2026-07-03T08:49:30.785975+00:00", "elapsed_ms": 2, "type": "turn_started"}
+{"seq": 3, "timestamp": "2026-07-03T08:49:30.785975+00:00", "elapsed_ms": 2, "type": "status", "status": "building_context"}
+{"seq": 4, "timestamp": "2026-07-03T08:49:30.829431+00:00", "elapsed_ms": 45, "type": "status", "status": "running"}
+{"seq": 5, "timestamp": "2026-07-03T08:49:30.829431+00:00", "elapsed_ms": 46, "type": "status", "status": "calling_model", "iteration": 1}
+{"seq": 6, "timestamp": "2026-07-03T08:49:32.925647+00:00", "elapsed_ms": 2141, "type": "status", "status": "executing_tools", "iteration": 1}
+{"seq": 7, "timestamp": "2026-07-03T08:49:32.926316+00:00", "elapsed_ms": 2142, "type": "tool_started", "iteration": 1, "tool_name": "list_dir", "tool_call_id": "list_dir:2", "arguments": {"path": "notes"}}
+{"seq": 8, "timestamp": "2026-07-03T08:49:32.927324+00:00", "elapsed_ms": 2143, "type": "tool_completed", "iteration": 1, "tool_name": "list_dir", "tool_call_id": "list_dir:2", "result_preview": "trace_demo.md", "is_error": false}
+{"seq": 9, "timestamp": "2026-07-03T08:49:32.927324+00:00", "elapsed_ms": 2143, "type": "status", "status": "calling_model", "iteration": 2}
+{"seq": 10, "timestamp": "2026-07-03T08:49:34.246694+00:00", "elapsed_ms": 3463, "type": "text_delta", "delta": "存在", "iteration": 2}
+{"seq": 11, "timestamp": "2026-07-03T08:49:34.247700+00:00", "elapsed_ms": 3463, "type": "text_delta", "delta": "。**", "iteration": 2}
+{"seq": 12, "timestamp": "2026-07-03T08:49:34.511613+00:00", "elapsed_ms": 3727, "type": "text_delta", "delta": "trace", "iteration": 2}
+{"seq": 13, "timestamp": "2026-07-03T08:49:34.511613+00:00", "elapsed_ms": 3728, "type": "text_delta", "delta": "_demo", "iteration": 2}
+{"seq": 14, "timestamp": "2026-07-03T08:49:34.512632+00:00", "elapsed_ms": 3728, "type": "text_delta", "delta": ".md", "iteration": 2}
+{"seq": 15, "timestamp": "2026-07-03T08:49:34.512632+00:00", "elapsed_ms": 3728, "type": "text_delta", "delta": "**", "iteration": 2}
+{"seq": 16, "timestamp": "2026-07-03T08:49:34.512632+00:00", "elapsed_ms": 3728, "type": "text_delta", "delta": " ", "iteration": 2}
+{"seq": 17, "timestamp": "2026-07-03T08:49:34.512632+00:00", "elapsed_ms": 3729, "type": "text_delta", "delta": "文件", "iteration": 2}
+{"seq": 18, "timestamp": "2026-07-03T08:49:34.512632+00:00", "elapsed_ms": 3729, "type": "text_delta", "delta": "在", "iteration": 2}
+{"seq": 19, "timestamp": "2026-07-03T08:49:34.545497+00:00", "elapsed_ms": 3761, "type": "text_delta", "delta": " notes", "iteration": 2}
+{"seq": 20, "timestamp": "2026-07-03T08:49:34.546037+00:00", "elapsed_ms": 3761, "type": "text_delta", "delta": " ", "iteration": 2}
+{"seq": 21, "timestamp": "2026-07-03T08:49:34.546037+00:00", "elapsed_ms": 3762, "type": "text_delta", "delta": "目录", "iteration": 2}
+{"seq": 22, "timestamp": "2026-07-03T08:49:34.546037+00:00", "elapsed_ms": 3762, "type": "text_delta", "delta": "中", "iteration": 2}
+{"seq": 23, "timestamp": "2026-07-03T08:49:34.546037+00:00", "elapsed_ms": 3762, "type": "text_delta", "delta": "。", "iteration": 2}
+{"seq": 24, "timestamp": "2026-07-03T08:49:34.602181+00:00", "elapsed_ms": 3818, "type": "status", "status": "completed"}
+{"seq": 25, "timestamp": "2026-07-03T08:49:34.602684+00:00", "elapsed_ms": 3819, "type": "turn_completed", "stop_reason": "completed", "final_content": "存在。**trace_demo.md** 文件在 notes 目录中。", "tools_used": ["list_dir"], "usage": {}, "error": null, "latency_ms": 3818}
+{"seq": 26, "timestamp": "2026-07-03T08:49:34.603689+00:00", "elapsed_ms": 3820, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": ["list_dir"], "usage": {}}

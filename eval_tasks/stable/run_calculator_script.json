@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "id": "run_calculator_script",
+  "category": "shell",
+  "fixture": "basic_workspace",
+  "input": "Run src/calculator.py. Include the command output 5 in the final answer.",
+  "tags": ["stable", "shell", "read_only", "python"],
+  "purpose": "Verify shell execution for a known Python source file.",
+  "allowed_tools": ["exec", "read_file", "list_dir", "find_files"],
+  "forbidden_tools": ["write_file", "edit_file", "apply_patch", "web_fetch", "web_search"],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "exec"},
+    {"type": "tool_error_absent"},
+    {"type": "command_output_contains", "contains": ["5"]},
+    {"type": "final_answer_contains", "contains": ["5"]}
+  ],
+  "timeout_seconds": 120
+}

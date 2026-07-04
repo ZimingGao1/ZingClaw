@@ -1,0 +1,46 @@
+{
+  "trace_id": "20260703T091019-01e39350",
+  "created_at": "2026-07-03T09:10:19.531421+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "write_trace_note",
+    "input": "创建 notes/trace_demo.md，写入一段关于 trace 作用的简短说明。",
+    "category": "filesystem",
+    "tags": [
+      "regression",
+      "filesystem",
+      "uses_tools",
+      "tool:write_file",
+      "writes_files"
+    ],
+    "purpose": "Protect filesystem behavior for: 创建 notes/trace_demo.md，写入一段关于 trace 作用的简短说明。",
+    "stability": "stable",
+    "session_key": "eval:write_trace_note",
+    "channel": "eval",
+    "chat_id": "eval:write_trace_note",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "write_file"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [],
+    "expected_files_touched": [
+      "notes/trace_demo.md"
+    ],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:write_trace_note",
+  "channel": "eval",
+  "chat_id": "eval:write_trace_note",
+  "status": "completed",
+  "updated_at": "2026-07-03T09:10:29.160462+00:00"
+}

@@ -1,0 +1,47 @@
+{
+  "name": "project_orientation",
+  "input": "根据当前上下文，说明这个 workspace 大概是做什么的。",
+  "session_key": "eval:project_orientation",
+  "channel": "eval",
+  "chat_id": "eval:project_orientation",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "list_dir",
+    "read_file",
+    "exec",
+    "find_files"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [
+    "git status",
+    "git remote -v"
+  ],
+  "expected_files_touched": [
+    ".",
+    "test/hello.py",
+    ".."
+  ],
+  "allow_tool_errors": true,
+  "allow_safety_blocks": true,
+  "source_trace_id": "20260702T143228-026961f8",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "context",
+  "purpose": "Protect context behavior for: 根据当前上下文，说明这个 workspace 大概是做什么的。",
+  "stability": "candidate",
+  "tags": [
+    "candidate",
+    "context",
+    "uses_tools",
+    "tool:exec",
+    "tool:find_files",
+    "tool:list_dir",
+    "tool:read_file",
+    "shell",
+    "safety"
+  ]
+}

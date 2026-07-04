@@ -1,0 +1,34 @@
+{
+  "name": "run_hello_py",
+  "input": "运行 test/hello.py，并告诉我输出是什么。",
+  "session_key": "eval:run_hello_py",
+  "channel": "eval",
+  "chat_id": "eval:run_hello_py",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "exec"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [
+    "python test/hello.py"
+  ],
+  "expected_files_touched": [],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260702T144516-0f4042b1",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "shell",
+  "purpose": "Protect shell behavior for: 运行 test/hello.py，并告诉我输出是什么。",
+  "stability": "stable",
+  "tags": [
+    "regression",
+    "shell",
+    "uses_tools",
+    "tool:exec"
+  ]
+}

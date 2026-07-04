@@ -1,0 +1,40 @@
+{
+  "name": "project_orientation_20260703t043640-d51a2bcd",
+  "input": "根据当前上下文，说明这个 workspace 大概是做什么的。",
+  "session_key": "eval:project_orientation_20260703t043640-d51a2bcd",
+  "channel": "eval",
+  "chat_id": "eval:project_orientation_20260703t043640-d51a2bcd",
+  "metadata": {},
+  "expected_status": "completed",
+  "require_final_answer": true,
+  "expected_tools": [
+    "list_dir",
+    "read_file"
+  ],
+  "forbidden_tools": [],
+  "expected_command_substrings": [],
+  "expected_files_touched": [
+    ".",
+    "trace_demo/run_me.py",
+    "test/hello.py",
+    "notes/trace_demo.md"
+  ],
+  "allow_tool_errors": false,
+  "allow_safety_blocks": false,
+  "source_trace_id": "20260703T043640-d51a2bcd",
+  "curation": {
+    "generated_by": "zingclaw eval curate",
+    "policy": "deterministic-local-trace-v1"
+  },
+  "category": "context",
+  "purpose": "Candidate context-orientation case; useful but too broad for stable regression.",
+  "stability": "candidate",
+  "tags": [
+    "candidate",
+    "context",
+    "uses_tools",
+    "tool:list_dir",
+    "tool:read_file",
+    "read_only"
+  ]
+}

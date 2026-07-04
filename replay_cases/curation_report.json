@@ -1,0 +1,420 @@
+{
+  "version": 1,
+  "generated_at": "2026-07-03T07:13:56.379490+00:00",
+  "trace_root": "D:\\Project\\ZingClaw\\traces",
+  "output_dir": "D:\\Project\\ZingClaw\\replay_cases",
+  "counts": {
+    "regression": 12,
+    "candidate": 8,
+    "discard": 9
+  },
+  "items": [
+    {
+      "trace_id": "20260702T142738-dd244d9f",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T142738-dd244d9f",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260702T143221-c6fb824d",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T143221-c6fb824d",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260702T143228-026961f8",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T143228-026961f8",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1",
+        "safety blocks observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\project_orientation.json",
+      "tools_used": [
+        "list_dir",
+        "read_file",
+        "exec",
+        "find_files"
+      ],
+      "stop_reason": "completed",
+      "score": 50
+    },
+    {
+      "trace_id": "20260702T143306-1174a258",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T143306-1174a258",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\list_workspace.json",
+      "tools_used": [
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144403-d311e177",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144403-d311e177",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\read_hello_py.json",
+      "tools_used": [
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144414-a190d602",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144414-a190d602",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\read_missing_file.json",
+      "tools_used": [
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    },
+    {
+      "trace_id": "20260702T144422-0658999f",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144422-0658999f",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\write_trace_note.json",
+      "tools_used": [
+        "write_file"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144439-67ca51ad",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144439-67ca51ad",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\edit_trace_note.json",
+      "tools_used": [
+        "read_file",
+        "apply_patch"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144502-ce8266d6",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144502-ce8266d6",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\list_after_write.json",
+      "tools_used": [
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144509-a303f353",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144509-a303f353",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\python_version.json",
+      "tools_used": [
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144516-0f4042b1",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144516-0f4042b1",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\run_hello_py.json",
+      "tools_used": [
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144522-25e78994",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144522-25e78994",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\safe_shell_listing.json",
+      "tools_used": [
+        "exec",
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144539-4fc7ecdc",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144539-4fc7ecdc",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\create_and_run_script.json",
+      "tools_used": [
+        "write_file",
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144550-97c395dd",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144550-97c395dd",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\blocked_sensitive_path.json",
+      "tools_used": [
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    },
+    {
+      "trace_id": "20260702T144604-b6411844",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144604-b6411844",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260702T144615-1e4cc37c",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144615-1e4cc37c",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\tool_error_recovery.json",
+      "tools_used": [
+        "read_file",
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    },
+    {
+      "trace_id": "20260702T144624-b1225d3c",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144624-b1225d3c",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\inspect_then_run.json",
+      "tools_used": [
+        "read_file",
+        "exec"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260702T144634-6d49a13f",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144634-6d49a13f",
+      "decision": "candidate",
+      "reasons": [
+        "uses stateful or ambiguous tools",
+        "no stable local built-in tool assertions"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\memory_preference.json",
+      "tools_used": [
+        "save_memory"
+      ],
+      "stop_reason": "completed",
+      "score": 50
+    },
+    {
+      "trace_id": "20260702T144640-9137f88e",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144640-9137f88e",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260702T144649-055a2a88",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144649-055a2a88",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260702T144702-9260b484",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144702-9260b484",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 1",
+        "safety blocks observed: 1"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\mcp_status_explain.json",
+      "tools_used": [
+        "list_dir",
+        "find_files",
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 50
+    },
+    {
+      "trace_id": "20260702T144718-20590c7b",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144718-20590c7b",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 2"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\cron_directory.json",
+      "tools_used": [
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 70
+    },
+    {
+      "trace_id": "20260702T144731-52027871",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144731-52027871",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260702T144740-f06d69c0",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144740-f06d69c0",
+      "decision": "candidate",
+      "reasons": [
+        "tool errors observed: 3",
+        "uses external/network tools",
+        "no stable local built-in tool assertions"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\candidates\\web_search_weather.json",
+      "tools_used": [
+        "web_search",
+        "web_fetch"
+      ],
+      "stop_reason": "completed",
+      "score": 10
+    },
+    {
+      "trace_id": "20260702T144910-823da53a",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260702T144910-823da53a",
+      "decision": "discard",
+      "reasons": [
+        "stop_reason is error"
+      ],
+      "case_path": null,
+      "tools_used": [
+        "web_search"
+      ],
+      "stop_reason": "error",
+      "score": 0
+    },
+    {
+      "trace_id": "20260703T032600-b3c4093b",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260703T032600-b3c4093b",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260703T043633-d4650b39",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260703T043633-d4650b39",
+      "decision": "discard",
+      "reasons": [
+        "no tool trajectory to verify deterministically"
+      ],
+      "case_path": null,
+      "tools_used": [],
+      "stop_reason": "completed",
+      "score": 20
+    },
+    {
+      "trace_id": "20260703T043640-d51a2bcd",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260703T043640-d51a2bcd",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\project_orientation_20260703t043640-d51a2bcd.json",
+      "tools_used": [
+        "list_dir",
+        "read_file"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    },
+    {
+      "trace_id": "20260703T043656-9fd22f45",
+      "trace_path": "D:\\Project\\ZingClaw\\traces\\20260703T043656-9fd22f45",
+      "decision": "regression",
+      "reasons": [
+        "stable local deterministic trace"
+      ],
+      "case_path": "D:\\Project\\ZingClaw\\replay_cases\\regression\\list_workspace_20260703t043656-9fd22f45.json",
+      "tools_used": [
+        "list_dir"
+      ],
+      "stop_reason": "completed",
+      "score": 100
+    }
+  ]
+}

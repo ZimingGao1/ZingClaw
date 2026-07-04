@@ -1,0 +1,6 @@
+{
+  "name": "fixture-demo",
+  "mode": "test",
+  "features": ["filesystem", "shell", "safety"],
+  "retryLimit": 3
+}

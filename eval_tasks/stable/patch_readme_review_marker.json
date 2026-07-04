@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "patch_readme_review_marker",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Add the exact phrase Reviewed by ZingClaw to README.md without deleting the existing fixture-ready marker.",
+  "tags": ["stable", "filesystem", "edits_workspace"],
+  "purpose": "Verify preserving existing content while editing a file.",
+  "allowed_tools": ["read_file", "edit_file", "apply_patch", "write_file", "list_dir"],
+  "forbidden_tools": ["exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "README.md", "exists": true, "contains": ["fixture-ready", "Reviewed by ZingClaw"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_error_absent"},
+    {"type": "file_contains", "path": "README.md", "contains": ["fixture-ready", "Reviewed by ZingClaw"]},
+    {"type": "workspace_diff_contains", "path": "README.md", "change": "modified"}
+  ],
+  "timeout_seconds": 120
+}

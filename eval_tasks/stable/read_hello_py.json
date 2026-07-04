@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "read_hello_py",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "读取 test/hello.py 的内容，并解释它做了什么。",
+  "tags": ["stable", "filesystem", "read_only"],
+  "purpose": "Verify the agent can inspect a known workspace file and explain it.",
+  "allowed_tools": ["read_file", "list_dir"],
+  "forbidden_tools": ["write_file", "edit_file", "exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {
+      "path": "test/hello.py",
+      "exists": true,
+      "contains": ["hello"]
+    }
+  ],
+  "verifiers": [
+    {
+      "type": "status_completed"
+    },
+    {
+      "type": "tool_used",
+      "name": "read_file"
+    },
+    {
+      "type": "file_contains",
+      "path": "test/hello.py",
+      "contains": ["hello"]
+    },
+    {
+      "type": "final_answer_contains",
+      "contains": ["hello"]
+    }
+  ],
+  "timeout_seconds": 120
+}

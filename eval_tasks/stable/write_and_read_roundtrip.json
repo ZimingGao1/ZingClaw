@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "write_and_read_roundtrip",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Write notes/roundtrip.txt with the exact phrase roundtrip-check, then read it back and confirm the phrase.",
+  "tags": ["stable", "filesystem", "writes_workspace"],
+  "purpose": "Verify a write-then-read roundtrip.",
+  "allowed_tools": ["write_file", "read_file", "list_dir"],
+  "forbidden_tools": ["exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "notes/roundtrip.txt", "exists": true, "contains": ["roundtrip-check"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "write_file"},
+    {"type": "tool_used", "name": "read_file"},
+    {"type": "tool_error_absent"},
+    {"type": "file_contains", "path": "notes/roundtrip.txt", "contains": ["roundtrip-check"]},
+    {"type": "workspace_diff_contains", "path": "notes/roundtrip.txt", "change": "created"}
+  ],
+  "timeout_seconds": 120
+}

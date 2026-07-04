@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "read_config_json",
+  "category": "filesystem",
+  "fixture": "basic_workspace",
+  "input": "Use read_file to inspect config/app.json. Tell me the app name and retry limit.",
+  "tags": ["stable", "filesystem", "read_only", "json"],
+  "purpose": "Verify reading structured JSON configuration.",
+  "allowed_tools": ["read_file", "list_dir", "find_files"],
+  "forbidden_tools": ["write_file", "edit_file", "apply_patch", "exec", "web_fetch", "web_search"],
+  "expected_artifacts": [
+    {"path": "config/app.json", "exists": true, "contains": ["fixture-demo", "retryLimit"]}
+  ],
+  "verifiers": [
+    {"type": "status_completed"},
+    {"type": "tool_used", "name": "read_file"},
+    {"type": "tool_error_absent"},
+    {"type": "final_answer_contains", "contains": ["fixture-demo", "3"]}
+  ],
+  "timeout_seconds": 120
+}

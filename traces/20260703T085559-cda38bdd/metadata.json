@@ -1,0 +1,46 @@
+{
+  "trace_id": "20260703T085559-cda38bdd",
+  "created_at": "2026-07-03T08:55:59.599256+00:00",
+  "kind": "replay",
+  "case": {
+    "name": "read_hello_py",
+    "input": "读取 test/hello.py 的内容，并解释它做了什么。",
+    "category": "filesystem",
+    "tags": [
+      "regression",
+      "filesystem",
+      "uses_tools",
+      "tool:read_file",
+      "read_only"
+    ],
+    "purpose": "Protect filesystem behavior for: 读取 test/hello.py 的内容，并解释它做了什么。",
+    "stability": "stable",
+    "session_key": "eval:read_hello_py",
+    "channel": "eval",
+    "chat_id": "eval:read_hello_py",
+    "metadata": {},
+    "expected_status": "completed",
+    "require_final_answer": true,
+    "expected_tools": [
+      "read_file"
+    ],
+    "forbidden_tools": [],
+    "allowed_extra_tools": [],
+    "expected_command_substrings": [],
+    "expected_files_touched": [
+      "test/hello.py"
+    ],
+    "expected_files_written": [],
+    "expected_artifacts": [],
+    "expected_answer_contains": [],
+    "expected_safety_blocks": null,
+    "allow_tool_errors": false,
+    "allow_safety_blocks": false,
+    "disallow_unexpected_dangerous_tools": true
+  },
+  "session_key": "eval:read_hello_py",
+  "channel": "eval",
+  "chat_id": "eval:read_hello_py",
+  "status": "completed",
+  "updated_at": "2026-07-03T08:56:06.117570+00:00"
+}

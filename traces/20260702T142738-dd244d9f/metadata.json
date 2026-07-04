@@ -1,0 +1,22 @@
+{
+  "trace_id": "20260702T142738-dd244d9f",
+  "created_at": "2026-07-02T14:27:38.852029+00:00",
+  "workflow_name": "agent_turn",
+  "context": {
+    "channel": "cli",
+    "chat_id": "demo",
+    "session_key": "demo",
+    "metadata": {
+      "_wants_stream": true,
+      "sender_id": "user"
+    }
+  },
+  "model": "kimi-k2.5",
+  "provider": "openai_compat",
+  "session_key": "demo",
+  "channel": "cli",
+  "chat_id": "demo",
+  "status": "completed",
+  "error": null,
+  "updated_at": "2026-07-02T14:27:49.277885+00:00"
+}
