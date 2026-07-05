@@ -9,18 +9,24 @@ __pycache__/
 
 workspace/*
 !workspace/.gitkeep
+!workspace/README.md
 
 sessions/*
 !sessions/.gitkeep
+!sessions/README.md
 
 memory/*
 !memory/.gitkeep
+!memory/README.md
 
 logs/*
 !logs/.gitkeep
+!logs/README.md
 
 traces/
 traces_challenge/
 _tmp_history_demo/
+
+.agents/
 
 eval_runs/
