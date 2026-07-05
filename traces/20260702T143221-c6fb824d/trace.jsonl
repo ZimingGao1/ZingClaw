@@ -1,8 +1,0 @@
-{"seq": 1, "timestamp": "2026-07-02T14:32:21.218314+00:00", "elapsed_ms": 0, "type": "user_input", "input": "你好，简单介绍一下你能做什么，用三句话回答。", "metadata": {"trace_question_id": "chat_capabilities", "trace_question_category": "chat", "trace_question_tags": ["read_only", "baseline"], "trace_question_set": "starter-trace-questions"}}
-{"seq": 2, "timestamp": "2026-07-02T14:32:21.218314+00:00", "elapsed_ms": 1, "type": "turn_started"}
-{"seq": 3, "timestamp": "2026-07-02T14:32:21.223576+00:00", "elapsed_ms": 1, "type": "status", "status": "building_context"}
-{"seq": 4, "timestamp": "2026-07-02T14:32:21.294835+00:00", "elapsed_ms": 75, "type": "status", "status": "running"}
-{"seq": 5, "timestamp": "2026-07-02T14:32:21.294835+00:00", "elapsed_ms": 76, "type": "status", "status": "calling_model", "iteration": 1}
-{"seq": 6, "timestamp": "2026-07-02T14:32:28.799914+00:00", "elapsed_ms": 7578, "type": "status", "status": "completed"}
-{"seq": 7, "timestamp": "2026-07-02T14:32:28.800694+00:00", "elapsed_ms": 7579, "type": "turn_completed", "stop_reason": "completed", "final_content": "你好！我能在本地工作空间里帮你写代码、改文件、运行命令、搜索代码等开发任务。我可以管理长期记忆、设置定时任务，还能联网搜索信息辅助决策。遇到不确定的事我会先验证再回答，优先用行动推进而不是只解释。", "tools_used": [], "usage": {}, "error": null, "latency_ms": 7580}
-{"seq": 8, "timestamp": "2026-07-02T14:32:28.800694+00:00", "elapsed_ms": 7580, "type": "turn_result", "final_content": "你好！我能在本地工作空间里帮你写代码、改文件、运行命令、搜索代码等开发任务。我可以管理长期记忆、设置定时任务，还能联网搜索信息辅助决策。遇到不确定的事我会先验证再回答，优先用行动推进而不是只解释。", "stop_reason": "completed", "error": null, "tools_used": [], "usage": {}}

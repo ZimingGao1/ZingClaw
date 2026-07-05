@@ -19,4 +19,8 @@ memory/*
 logs/*
 !logs/.gitkeep
 
+traces/
+traces_challenge/
+_tmp_history_demo/
+
 eval_runs/

@@ -1,8 +1,0 @@
-{"seq": 1, "timestamp": "2026-07-03T04:36:33.934604+00:00", "elapsed_ms": 0, "type": "user_input", "input": "你好，简单介绍一下你能做什么，用三句话回答。", "metadata": {"trace_question_id": "chat_capabilities", "trace_question_category": "chat", "trace_question_tags": ["read_only", "baseline"], "trace_question_set": "starter-trace-questions"}}
-{"seq": 2, "timestamp": "2026-07-03T04:36:33.934604+00:00", "elapsed_ms": 1, "type": "turn_started"}
-{"seq": 3, "timestamp": "2026-07-03T04:36:33.934604+00:00", "elapsed_ms": 1, "type": "status", "status": "building_context"}
-{"seq": 4, "timestamp": "2026-07-03T04:36:34.030201+00:00", "elapsed_ms": 96, "type": "status", "status": "running"}
-{"seq": 5, "timestamp": "2026-07-03T04:36:34.030201+00:00", "elapsed_ms": 96, "type": "status", "status": "calling_model", "iteration": 1}
-{"seq": 6, "timestamp": "2026-07-03T04:36:40.359738+00:00", "elapsed_ms": 6424, "type": "status", "status": "completed"}
-{"seq": 7, "timestamp": "2026-07-03T04:36:40.360368+00:00", "elapsed_ms": 6425, "type": "turn_completed", "stop_reason": "completed", "final_content": "你好！我是ZingClaw，一个本地编程助手，可以帮你写代码、调试bug、分析项目结构。我支持读写文件、运行命令、搜索代码、网页抓取等工具，能处理多种编程语言和框架。适合日常开发、代码审查、重构和新功能开发等任务。", "tools_used": [], "usage": {}, "error": null, "latency_ms": 6425}
-{"seq": 8, "timestamp": "2026-07-03T04:36:40.360368+00:00", "elapsed_ms": 6425, "type": "turn_result", "stop_reason": "completed", "error": null, "tools_used": [], "usage": {}}
