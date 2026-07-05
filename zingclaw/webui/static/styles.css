@@ -124,7 +124,9 @@ body {
   flex-direction: column;
   gap: 1rem;
   padding: 1.4rem;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .brand h1,
@@ -223,6 +225,13 @@ body {
   padding: 1rem;
 }
 
+.sessions-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .panel-head {
   display: flex;
   justify-content: space-between;
@@ -284,7 +293,8 @@ body {
 }
 
 .sessions-list {
-  min-height: 16rem;
+  flex: 1 1 auto;
+  min-height: 0;
   padding-right: 0.2rem;
 }
 
@@ -320,12 +330,17 @@ body {
 
 .mcp-panel {
   display: grid;
+  flex: 0 0 auto;
   gap: 0.75rem;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-height: clamp(9rem, 28vh, 16rem);
+  overflow: hidden;
 }
 
 .mcp-list {
   display: grid;
   gap: 0.65rem;
+  min-height: 0;
 }
 
 .mcp-card {
